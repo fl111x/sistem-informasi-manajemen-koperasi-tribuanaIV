@@ -1,7 +1,7 @@
 <script setup>
-import DashboardKoperasi from './components/DashboardKoperasi.vue'
+import KasirSwalayan from './components/KasirSwalayan.vue'
 </script>
 
 <template>
-  <DashboardKoperasi />
+  <KasirSwalayan />
 </template>
