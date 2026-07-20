@@ -26,11 +26,13 @@ const authRoutes = require('./routes/auth.routes');
 const roleRoutes = require('./routes/role.routes');
 const userRoutes = require('./routes/user.routes');
 const barangRoutes = require('./routes/barang.routes');
+const transaksiRoutes = require('./routes/transaksi.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/barang', barangRoutes);
+app.use('/api/transaksi', transaksiRoutes);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

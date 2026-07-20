@@ -32,41 +32,45 @@ const getBarangById = async (req, res) => {
 const createBarang = async (req, res) => {
   try {
     const { 
-      sku_barang, 
+      barcode, 
       nama_barang, 
+      golongan,
+      harga_beli,
       harga_swalayan, 
+      harga_grosir,
       stok_swalayan, 
       satuan_swalayan, 
       stok_grosir, 
-      satuan_grosir, 
-      rasio_konversi 
+      satuan_grosir 
     } = req.body;
 
     // Basic validation
-    if (!sku_barang || !nama_barang || !harga_swalayan) {
-      return res.status(400).json({ message: 'sku_barang, nama_barang, and harga_swalayan are required' });
+    if (!barcode || !nama_barang || !harga_swalayan) {
+      return res.status(400).json({ message: 'barcode, nama_barang, and harga_swalayan are required' });
     }
 
-    // Check if sku_barang already exists
-    const [existing] = await db.execute('SELECT * FROM Barang WHERE sku_barang = ?', [sku_barang]);
+    // Check if barcode already exists
+    const [existing] = await db.execute('SELECT * FROM Barang WHERE barcode = ?', [barcode]);
     if (existing.length > 0) {
-      return res.status(400).json({ message: 'SKU Barang already exists' });
+      return res.status(400).json({ message: 'Barcode already exists' });
     }
 
     const [result] = await db.execute(
       `INSERT INTO Barang (
-        sku_barang, nama_barang, harga_swalayan, stok_swalayan, 
-        satuan_swalayan, stok_grosir, satuan_grosir, rasio_konversi
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        barcode, nama_barang, golongan, harga_beli, harga_swalayan, harga_grosir,
+        stok_swalayan, satuan_swalayan, stok_grosir, satuan_grosir
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        sku_barang, 
+        barcode, 
         nama_barang, 
+        golongan || null,
+        harga_beli || 0,
         harga_swalayan, 
+        harga_grosir || 0,
         stok_swalayan || 0, 
         satuan_swalayan || null, 
         stok_grosir || 0, 
-        satuan_grosir || null, 
-        rasio_konversi || 1
+        satuan_grosir || null
       ]
     );
 
@@ -85,46 +89,52 @@ const updateBarang = async (req, res) => {
   try {
     const { id } = req.params;
     const { 
-      sku_barang, 
+      barcode, 
       nama_barang, 
+      golongan,
+      harga_beli,
       harga_swalayan, 
+      harga_grosir,
       stok_swalayan, 
       satuan_swalayan, 
       stok_grosir, 
-      satuan_grosir, 
-      rasio_konversi 
+      satuan_grosir
     } = req.body;
 
-    if (!sku_barang || !nama_barang || !harga_swalayan) {
-      return res.status(400).json({ message: 'sku_barang, nama_barang, and harga_swalayan are required' });
+    if (!barcode || !nama_barang || !harga_swalayan) {
+      return res.status(400).json({ message: 'barcode, nama_barang, and harga_swalayan are required' });
     }
 
-    // Check if new sku_barang clashes with another existing record
-    const [existing] = await db.execute('SELECT id_barang FROM Barang WHERE sku_barang = ? AND id_barang != ?', [sku_barang, id]);
+    // Check if new barcode clashes with another existing record
+    const [existing] = await db.execute('SELECT id_barang FROM Barang WHERE barcode = ? AND id_barang != ?', [barcode, id]);
     if (existing.length > 0) {
-      return res.status(400).json({ message: 'SKU Barang is already taken by another item' });
+      return res.status(400).json({ message: 'Barcode is already taken by another item' });
     }
 
     const [result] = await db.execute(
       `UPDATE Barang SET 
-        sku_barang = ?, 
+        barcode = ?, 
         nama_barang = ?, 
+        golongan = ?,
+        harga_beli = ?,
         harga_swalayan = ?, 
+        harga_grosir = ?,
         stok_swalayan = ?, 
         satuan_swalayan = ?, 
         stok_grosir = ?, 
-        satuan_grosir = ?, 
-        rasio_konversi = ? 
+        satuan_grosir = ? 
       WHERE id_barang = ?`,
       [
-        sku_barang, 
+        barcode, 
         nama_barang, 
+        golongan || null,
+        harga_beli || 0,
         harga_swalayan, 
+        harga_grosir || 0,
         stok_swalayan || 0, 
         satuan_swalayan || null, 
         stok_grosir || 0, 
         satuan_grosir || null, 
-        rasio_konversi || 1, 
         id
       ]
     );
