@@ -1,7 +1,7 @@
 <script setup>
-import KasirSwalayan from './components/KasirSwalayan.vue'
+import KelolaBarang from './components/KelolaBarang.vue'
 </script>
 
 <template>
-  <KasirSwalayan />
+  <KelolaBarang />
 </template>
