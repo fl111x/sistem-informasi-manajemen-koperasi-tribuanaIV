@@ -2,16 +2,18 @@ const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 
 const verifyToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
+  // Prioritize token from cookie, fallback to Authorization header for flexibility
+  let token = req.cookies?.token;
   
-  if (!authHeader) {
-    return res.status(403).json({ message: 'No token provided' });
+  if (!token) {
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    }
   }
 
-  const token = authHeader.split(' ')[1]; // Format: "Bearer <token>"
-
   if (!token) {
-    return res.status(403).json({ message: 'Invalid token format' });
+    return res.status(403).json({ message: 'No token provided' });
   }
 
   jwt.verify(token, process.env.JWT_SECRET || 'supersecretjwtkey_koperasi', (err, decoded) => {

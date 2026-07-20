@@ -46,9 +46,15 @@ const login = async (req, res) => {
     // Remove password from response
     delete user.password;
 
+    // Set JWT in HTTP-Only Cookie
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 24 * 60 * 60 * 1000 // 1 day in milliseconds
+    });
+
     res.status(200).json({
       message: 'Login successful',
-      token,
       user
     });
 
@@ -121,8 +127,14 @@ const resetPassword = async (req, res) => {
   }
 };
 
+const logout = (req, res) => {
+  res.clearCookie('token');
+  res.status(200).json({ message: 'Logout successful' });
+};
+
 module.exports = {
   login,
   register,
-  resetPassword
+  resetPassword,
+  logout
 };
