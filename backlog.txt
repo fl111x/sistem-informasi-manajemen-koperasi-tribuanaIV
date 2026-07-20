@@ -1,0 +1,15 @@
+backlog 
+- fungsi login (login, lupa password, autentikasi login)
+- tampilan login 
+- fungsi master barang (CRUD barang)
+- tampilan kelola barang sisi admin koperasi dan admin sistem
+- fungsi kasir swalayan
+- tampilan kasir swalayan
+- fungsi kasir grosir
+- tampilan kasir grosir
+- fungsi kelola user (CRUD user)
+- tampilan kelola user 
+- pembuatan DB
+- fungsi laporan dan generate laporan
+- tampilan laporan dan generate laporan
+- fungsi logout
