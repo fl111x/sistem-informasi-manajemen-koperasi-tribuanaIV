@@ -1,8 +1,32 @@
 <script setup>
-import { useRoute } from 'vue-router';
+import { ref, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import api from '../services/api';
 
 // useRoute digunakan untuk mendeteksi URL mana yang sedang aktif saat ini
 const route = useRoute();
+const router = useRouter();
+const user = ref(null);
+
+onMounted(() => {
+  const userData = localStorage.getItem('user');
+  if (userData) {
+    user.value = JSON.parse(userData);
+  }
+});
+
+const prosesLogout = async () => {
+  try {
+    await api.post('/auth/logout');
+    localStorage.removeItem('user');
+    router.push('/login');
+  } catch (error) {
+    console.error('Logout failed:', error);
+    // Still clear local data and redirect even if server fails
+    localStorage.removeItem('user');
+    router.push('/login');
+  }
+};
 </script>
 
 <template>
@@ -33,28 +57,28 @@ const route = useRoute();
             Dashboard
           </router-link>
           
-          <router-link to="/kelola-barang" 
+          <router-link v-if="user?.nama_role === 'Administrator' || user?.id_role === 1" to="/kelola-barang" 
             class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"
             :class="route.path === '/kelola-barang' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 font-medium hover:bg-slate-100'">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
             Kelola Barang
           </router-link>
 
-          <router-link to="/kelola-pengguna" 
+          <router-link v-if="user?.nama_role === 'Administrator' || user?.id_role === 1" to="/kelola-pengguna" 
             class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"
             :class="route.path === '/kelola-pengguna' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 font-medium hover:bg-slate-100'">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
             Kelola Pengguna
           </router-link>
           
-          <router-link to="/kasir-swalayan" 
+          <router-link v-if="user?.nama_role === 'Administrator' || user?.nama_role === 'Kasir Swalayan' || user?.id_role === 1 || user?.id_role === 2" to="/kasir-swalayan" 
             class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"
             :class="route.path === '/kasir-swalayan' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 font-medium hover:bg-slate-100'">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
             Kasir Swalayan
           </router-link>
           
-          <router-link to="/kasir-grosir" 
+          <router-link v-if="user?.nama_role === 'Administrator' || user?.nama_role === 'Kasir Grosir' || user?.id_role === 1 || user?.id_role === 3" to="/kasir-grosir" 
             class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"
             :class="route.path === '/kasir-grosir' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 font-medium hover:bg-slate-100'">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
@@ -65,12 +89,12 @@ const route = useRoute();
       </div>
 
       <!-- Profil Admin -->
-      <div class="p-4 border-t border-slate-200">
+      <div class="p-4 border-t border-slate-200" v-if="user">
         <div class="px-3 py-2.5 bg-slate-100 rounded-lg mb-2">
-          <p class="text-sm font-bold text-slate-800 m-0">Administrator</p>
-          <p class="text-xs text-slate-500 m-0">Akses Penuh</p>
+          <p class="text-sm font-bold text-slate-800 m-0">{{ user.nama_pengguna || user.username || 'Administrator' }}</p>
+          <p class="text-xs text-slate-500 m-0">{{ user.nama_role || 'Akses Penuh' }}</p>
         </div>
-        <button class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+        <button @click="prosesLogout" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
           Keluar
         </button>

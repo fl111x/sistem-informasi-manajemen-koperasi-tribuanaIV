@@ -1,41 +1,54 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import api from '../services/api';
 
 // State untuk form filter
 const searchQuery = ref('');
 const kategoriTerpilih = ref('Semua kategori');
 
 // ==========================================
-// MOCK DATA: Database Kelola Barang
+// STATE & API: Database Kelola Barang
 // ==========================================
-const daftarBarang = ref([
-  { kode: 'BRG-0001', barcode: '8991002101010', nama: 'Beras Premium 5 kg', kategori: 'Sembako', eceran: 68000, grosir: 64000, minGrosir: '10 Sak', stok: 240 },
-  { kode: 'BRG-0002', barcode: '8991002102027', nama: 'Minyak Goreng 2 L', kategori: 'Sembako', eceran: 38000, grosir: 35500, minGrosir: '12 Pouch', stok: 180 },
-  { kode: 'BRG-0003', barcode: '8991002103034', nama: 'Gula Pasir 1 kg', kategori: 'Sembako', eceran: 16500, grosir: 15200, minGrosir: '20 Pak', stok: 95 },
-  { kode: 'BRG-0004', barcode: '8991002104041', nama: 'Teh Kotak 300 ml', kategori: 'Minuman', eceran: 4500, grosir: 3900, minGrosir: '24 Dus', stok: 620 },
-  { kode: 'BRG-0005', barcode: '8991002105058', nama: 'Kopi Sachet 20 x 25 g', kategori: 'Minuman', eceran: 12500, grosir: 11400, minGrosir: '12 Renceng', stok: 34 }, // Stok tipis
-  { kode: 'BRG-0006', barcode: '8991002106065', nama: 'Air Mineral 600 ml', kategori: 'Minuman', eceran: 3500, grosir: 2900, minGrosir: '48 Botol', stok: 1240 },
-  { kode: 'BRG-0007', barcode: '8991002107072', nama: 'Biskuit Kaleng 700 g', kategori: 'Makanan Ringan', eceran: 42000, grosir: 39000, minGrosir: '6 Kaleng', stok: 78 },
-  { kode: 'BRG-0008', barcode: '8991002108089', nama: 'Mie Instan Goreng', kategori: 'Makanan Ringan', eceran: 3200, grosir: 2750, minGrosir: '40 Pcs', stok: 860 },
-  { kode: 'BRG-0009', barcode: '8991002109096', nama: 'Sabun Mandi Batang', kategori: 'Perawatan Diri', eceran: 4800, grosir: 4200, minGrosir: '24 Pcs', stok: 410 },
-  { kode: 'BRG-0010', barcode: '8991002110103', nama: 'Pasta Gigi 190 g', kategori: 'Perawatan Diri', eceran: 15000, grosir: 13500, minGrosir: '12 Pcs', stok: 22 }, // Stok tipis
-  { kode: 'BRG-0011', barcode: '8991002111115', nama: 'Deterjen Bubuk 800 g', kategori: 'Kebutuhan Rumah', eceran: 22000, grosir: 20000, minGrosir: '12 Pak', stok: 130 },
-  { kode: 'BRG-0012', barcode: '8991002112122', nama: 'Buku Tulis 38 lembar', kategori: 'ATK', eceran: 4000, grosir: 3300, minGrosir: '50 Pcs', stok: 540 },
-]);
+const daftarBarang = ref([]);
+const isLoading = ref(false);
+const errorMessage = ref('');
+
+const fetchBarang = async () => {
+  try {
+    isLoading.value = true;
+    errorMessage.value = '';
+    const response = await api.get('/barang');
+    daftarBarang.value = response.data;
+  } catch (error) {
+    console.error('Error fetching barang:', error);
+    errorMessage.value = 'Gagal memuat data barang. Silakan coba lagi.';
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+onMounted(() => {
+  fetchBarang();
+});
 
 // Fungsi Filter
 const dataDitampilkan = computed(() => {
   return daftarBarang.value.filter((item) => {
-    const cocokKataKunci = item.nama.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
-                           item.kode.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
-                           item.barcode.includes(searchQuery.value);
-    const cocokKategori = kategoriTerpilih.value === 'Semua kategori' || item.kategori === kategoriTerpilih.value;
+    const nama = item.nama_barang || '';
+    const kode = item.kode_barang || '';
+    const barcode = item.barcode || '';
+    const kategori = item.kategori || '';
+
+    const cocokKataKunci = nama.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
+                           kode.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
+                           barcode.includes(searchQuery.value);
+    const cocokKategori = kategoriTerpilih.value === 'Semua kategori' || kategori === kategoriTerpilih.value;
     return cocokKataKunci && cocokKategori;
   });
 });
 
 const formatRupiah = (angka) => {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
 };
 </script>
 
@@ -89,16 +102,22 @@ const formatRupiah = (angka) => {
             </tr>
           </thead>
           <tbody>
-            <tr v-if="dataDitampilkan.length === 0">
+            <tr v-if="isLoading">
+              <td colspan="8" class="px-5 py-12 text-center text-slate-400">Memuat data...</td>
+            </tr>
+            <tr v-else-if="errorMessage">
+              <td colspan="8" class="px-5 py-12 text-center text-red-500">{{ errorMessage }}</td>
+            </tr>
+            <tr v-else-if="dataDitampilkan.length === 0">
               <td colspan="8" class="px-5 py-12 text-center text-slate-400">Barang tidak ditemukan.</td>
             </tr>
-            <tr v-else v-for="(item, index) in dataDitampilkan" :key="index" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-              <td class="px-5 py-3"><div class="flex flex-col"><span class="font-bold text-slate-800">{{ item.kode }}</span><span class="text-xs text-slate-400">{{ item.barcode }}</span></div></td>
-              <td class="px-5 py-3 font-medium text-slate-800">{{ item.nama }}</td>
+            <tr v-else v-for="(item, index) in dataDitampilkan" :key="item.id_barang || index" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+              <td class="px-5 py-3"><div class="flex flex-col"><span class="font-bold text-slate-800">{{ item.kode_barang }}</span><span class="text-xs text-slate-400">{{ item.barcode }}</span></div></td>
+              <td class="px-5 py-3 font-medium text-slate-800">{{ item.nama_barang }}</td>
               <td class="px-5 py-3 text-slate-500">{{ item.kategori }}</td>
-              <td class="px-5 py-3 text-right text-slate-700">{{ formatRupiah(item.eceran) }}</td>
-              <td class="px-5 py-3 text-right text-slate-700">{{ formatRupiah(item.grosir) }}</td>
-              <td class="px-5 py-3 text-center text-slate-500">{{ item.minGrosir }}</td>
+              <td class="px-5 py-3 text-right text-slate-700">{{ formatRupiah(item.harga_eceran) }}</td>
+              <td class="px-5 py-3 text-right text-slate-700">{{ formatRupiah(item.harga_grosir) }}</td>
+              <td class="px-5 py-3 text-center text-slate-500">-</td>
               <td class="px-5 py-3 text-center font-semibold"><span class="inline-block px-2 py-1 rounded text-xs" :class="item.stok <= 50 ? 'bg-red-50 text-red-600' : 'text-slate-700'">{{ item.stok }}</span></td>
               <td class="px-5 py-3 text-center">
                 <button class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-slate-300 rounded text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:text-blue-600 transition-colors">

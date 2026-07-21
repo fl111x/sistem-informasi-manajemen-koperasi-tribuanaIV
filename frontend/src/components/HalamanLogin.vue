@@ -1,9 +1,15 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import api from '../services/api';
+
+const router = useRouter();
 
 // State untuk menyimpan input pengguna
 const namaPengguna = ref('');
 const kataSandi = ref('');
+const errorMessage = ref('');
+const isLoading = ref(false);
 
 // LOGIKA JAM DINDING (ANALOG & DIGITAL)
 const waktuSaatIni = ref(new Date());
@@ -40,8 +46,26 @@ const teksTanggal = computed(() => {
 });
 // ==========================================
 
-const prosesLogin = () => {
-  alert(`Login ditekan!\nUser: ${namaPengguna.value}`);
+const prosesLogin = async () => {
+  try {
+    isLoading.value = true;
+    errorMessage.value = '';
+    
+    const response = await api.post('/auth/login', {
+      username: namaPengguna.value,
+      password: kataSandi.value
+    });
+    
+    // Simpan informasi user (tanpa token karena token otomatis disimpan di HTTP-Only Cookie)
+    localStorage.setItem('user', JSON.stringify(response.data.user));
+    
+    // Redirect ke halaman dashboard
+    router.push('/');
+  } catch (error) {
+    errorMessage.value = error.response?.data?.message || 'Terjadi kesalahan saat login.';
+  } finally {
+    isLoading.value = false;
+  }
 };
 </script>
 
@@ -111,6 +135,11 @@ const prosesLogin = () => {
         <h2 class="text-3xl font-bold mb-2">Masuk ke Sistem</h2>
         <p class="text-base text-slate-500 mb-10">Masukkan kredensial Anda untuk memulai giliran (shift).</p>
 
+        <!-- Pesan Error -->
+        <div v-if="errorMessage" class="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-md text-sm">
+          {{ errorMessage }}
+        </div>
+
         <form @submit.prevent="prosesLogin">
           
           <!-- Input Nama Pengguna -->
@@ -140,9 +169,11 @@ const prosesLogin = () => {
           <!-- Tombol Masuk -->
           <button 
             type="submit" 
-            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded transition-colors flex justify-center items-center gap-2"
+            :disabled="isLoading"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded transition-colors flex justify-center items-center gap-2 disabled:bg-blue-400 disabled:cursor-not-allowed"
           >
-            <span>Masuk</span>
+            <span>{{ isLoading ? 'Memproses...' : 'Masuk' }}</span>
+
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
             </svg>

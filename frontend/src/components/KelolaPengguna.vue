@@ -1,16 +1,14 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import api from '../services/api';
 
 // ==========================================
-// MOCK DATA: Database Pengguna (Tanpa Status)
+// STATE & API: Database Pengguna
 // ==========================================
-const daftarPengguna = ref([
-  { id: 1, nama: 'Budi Santoso', username: 'admin_budi', peran: 'Administrator', terakhirLogin: '21 Jul 2026, 08:15' },
-  { id: 2, nama: 'Rina Melati', username: 'kasir_rina', peran: 'Kasir Swalayan', terakhirLogin: '21 Jul 2026, 07:30' },
-  { id: 3, nama: 'Dewi Lestari', username: 'grosir_dewi', peran: 'Kasir Grosir', terakhirLogin: '20 Jul 2026, 15:45' },
-  { id: 4, nama: 'Agus Pratama', username: 'kasir_agus', peran: 'Kasir Swalayan', terakhirLogin: '10 Jun 2026, 14:00' },
-]);
-
+const daftarPengguna = ref([]);
+const daftarRoles = ref([]);
+const isLoading = ref(false);
+const errorMessage = ref('');
 const searchQuery = ref('');
 
 // ==========================================
@@ -20,12 +18,36 @@ const isModalOpen = ref(false);
 const modalMode = ref('tambah'); // 'tambah' atau 'edit'
 const idSedangDiedit = ref(null);
 
-// Form model (Tanpa Status)
 const formPengguna = ref({
-  nama: '',
+  nama_pengguna: '',
   username: '',
-  peran: 'Kasir Swalayan',
+  id_role: '',
   password: '' // Kosong saat diedit kecuali ingin diganti
+});
+
+const fetchData = async () => {
+  try {
+    isLoading.value = true;
+    errorMessage.value = '';
+    
+    // Fetch users and roles in parallel
+    const [usersRes, rolesRes] = await Promise.all([
+      api.get('/users'),
+      api.get('/roles')
+    ]);
+    
+    daftarPengguna.value = usersRes.data;
+    daftarRoles.value = rolesRes.data;
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    errorMessage.value = 'Gagal memuat data pengguna. Silakan coba lagi.';
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+onMounted(() => {
+  fetchData();
 });
 
 // ==========================================
@@ -35,9 +57,9 @@ const dataDitampilkan = computed(() => {
   if (!searchQuery.value) return daftarPengguna.value;
   const query = searchQuery.value.toLowerCase();
   return daftarPengguna.value.filter(user => 
-    user.nama.toLowerCase().includes(query) || 
-    user.username.toLowerCase().includes(query) ||
-    user.peran.toLowerCase().includes(query)
+    (user.nama_pengguna || '').toLowerCase().includes(query) || 
+    (user.username || '').toLowerCase().includes(query) ||
+    (user.nama_role || '').toLowerCase().includes(query)
   );
 });
 
@@ -47,18 +69,17 @@ const dataDitampilkan = computed(() => {
 const bukaModalTambah = () => {
   modalMode.value = 'tambah';
   idSedangDiedit.value = null;
-  formPengguna.value = { nama: '', username: '', peran: 'Kasir Swalayan', password: '' };
+  formPengguna.value = { nama_pengguna: '', username: '', id_role: daftarRoles.value.length > 0 ? daftarRoles.value[0].id_role : '', password: '' };
   isModalOpen.value = true;
 };
 
 const bukaModalEdit = (user) => {
   modalMode.value = 'edit';
-  idSedangDiedit.value = user.id;
-  // Salin data ke form
+  idSedangDiedit.value = user.id_pengguna;
   formPengguna.value = { 
-    nama: user.nama, 
+    nama_pengguna: user.nama_pengguna, 
     username: user.username, 
-    peran: user.peran, 
+    id_role: user.id_role, 
     password: '' 
   };
   isModalOpen.value = true;
@@ -68,33 +89,34 @@ const tutupModal = () => {
   isModalOpen.value = false;
 };
 
-const simpanPengguna = () => {
-  if (modalMode.value === 'tambah') {
-    // CREATE (Tambah Data)
-    const idBaru = daftarPengguna.value.length > 0 ? Math.max(...daftarPengguna.value.map(u => u.id)) + 1 : 1;
-    daftarPengguna.value.push({
-      id: idBaru,
-      nama: formPengguna.value.nama,
-      username: formPengguna.value.username,
-      peran: formPengguna.value.peran,
-      terakhirLogin: '-'
-    });
-  } else {
-    // UPDATE (Edit Data)
-    const index = daftarPengguna.value.findIndex(u => u.id === idSedangDiedit.value);
-    if (index !== -1) {
-      daftarPengguna.value[index].nama = formPengguna.value.nama;
-      daftarPengguna.value[index].username = formPengguna.value.username;
-      daftarPengguna.value[index].peran = formPengguna.value.peran;
+const simpanPengguna = async () => {
+  try {
+    if (modalMode.value === 'tambah') {
+      await api.post('/auth/register', formPengguna.value);
+    } else {
+      const payload = { ...formPengguna.value };
+      if (!payload.password) delete payload.password; // Don't send empty password
+      await api.put(`/users/${idSedangDiedit.value}`, payload);
     }
+    
+    // Refresh data
+    await fetchData();
+    tutupModal();
+  } catch (error) {
+    console.error('Error saving user:', error);
+    alert(error.response?.data?.message || 'Terjadi kesalahan saat menyimpan data.');
   }
-  tutupModal();
 };
 
-const hapusPengguna = (id) => {
+const hapusPengguna = async (id) => {
   if (confirm('Apakah Anda yakin ingin menghapus pengguna ini?')) {
-    // DELETE (Hapus Data)
-    daftarPengguna.value = daftarPengguna.value.filter(u => u.id !== id);
+    try {
+      await api.delete(`/users/${id}`);
+      await fetchData();
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      alert(error.response?.data?.message || 'Gagal menghapus pengguna.');
+    }
   }
 };
 </script>
@@ -140,15 +162,21 @@ const hapusPengguna = (id) => {
             </tr>
           </thead>
           <tbody>
-            <tr v-if="dataDitampilkan.length === 0">
+            <tr v-if="isLoading">
+              <td colspan="4" class="px-5 py-12 text-center text-slate-400">Memuat data...</td>
+            </tr>
+            <tr v-else-if="errorMessage">
+              <td colspan="4" class="px-5 py-12 text-center text-red-500">{{ errorMessage }}</td>
+            </tr>
+            <tr v-else-if="dataDitampilkan.length === 0">
               <td colspan="4" class="px-5 py-12 text-center text-slate-400">Pengguna tidak ditemukan.</td>
             </tr>
-            <tr v-else v-for="user in dataDitampilkan" :key="user.id" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+            <tr v-else v-for="user in dataDitampilkan" :key="user.id_pengguna" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
               
               <!-- Kolom Nama & Username -->
               <td class="px-5 py-3">
                 <div class="flex flex-col">
-                  <span class="font-bold text-slate-800">{{ user.nama }}</span>
+                  <span class="font-bold text-slate-800">{{ user.nama_pengguna }}</span>
                   <span class="text-xs text-slate-400">@{{ user.username }}</span>
                 </div>
               </td>
@@ -156,8 +184,8 @@ const hapusPengguna = (id) => {
               <!-- Kolom Peran -->
               <td class="px-5 py-3">
                 <span class="inline-flex items-center px-2 py-1 rounded text-xs font-semibold"
-                  :class="user.peran === 'Administrator' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-700'">
-                  {{ user.peran }}
+                  :class="user.nama_role === 'Administrator' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-700'">
+                  {{ user.nama_role }}
                 </span>
               </td>
 
@@ -170,7 +198,7 @@ const hapusPengguna = (id) => {
                   <button @click="bukaModalEdit(user)" class="text-slate-400 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 p-1.5 rounded transition-colors" title="Edit Pengguna">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                   </button>
-                  <button @click="hapusPengguna(user.id)" class="text-slate-400 hover:text-red-600 bg-slate-100 hover:bg-red-50 p-1.5 rounded transition-colors" title="Hapus Pengguna">
+                  <button @click="hapusPengguna(user.id_pengguna)" class="text-slate-400 hover:text-red-600 bg-slate-100 hover:bg-red-50 p-1.5 rounded transition-colors" title="Hapus Pengguna">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                   </button>
                 </div>
@@ -201,7 +229,7 @@ const hapusPengguna = (id) => {
         <div class="p-6 flex flex-col gap-4">
           <div>
             <label class="block text-sm font-semibold text-slate-700 mb-1">Nama Lengkap</label>
-            <input type="text" v-model="formPengguna.nama" placeholder="Masukkan nama lengkap" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600">
+            <input type="text" v-model="formPengguna.nama_pengguna" placeholder="Masukkan nama lengkap" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600">
           </div>
           <div>
             <label class="block text-sm font-semibold text-slate-700 mb-1">Username</label>
@@ -210,10 +238,10 @@ const hapusPengguna = (id) => {
           
           <div>
             <label class="block text-sm font-semibold text-slate-700 mb-1">Peran (Role)</label>
-            <select v-model="formPengguna.peran" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 cursor-pointer">
-              <option>Administrator</option>
-              <option>Kasir Swalayan</option>
-              <option>Kasir Grosir</option>
+            <select v-model="formPengguna.id_role" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 cursor-pointer">
+              <option v-for="role in daftarRoles" :key="role.id_role" :value="role.id_role">
+                {{ role.nama_role }}
+              </option>
             </select>
           </div>
 

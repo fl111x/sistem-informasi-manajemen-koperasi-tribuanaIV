@@ -21,7 +21,12 @@ class UserModel {
   }
 
   static async findByUsername(username) {
-    const [rows] = await db.execute('SELECT * FROM Pengguna WHERE username = ?', [username]);
+    const [rows] = await db.execute(`
+      SELECT p.*, r.nama_role 
+      FROM Pengguna p 
+      LEFT JOIN Role r ON p.id_role = r.id_role 
+      WHERE p.username = ?
+    `, [username]);
     return rows[0];
   }
 

@@ -1,5 +1,15 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
+
+const userName = ref('Admin');
+
+onMounted(() => {
+  const userData = localStorage.getItem('user');
+  if (userData) {
+    const user = JSON.parse(userData);
+    userName.value = user.nama_pengguna || user.username || 'Pengguna';
+  }
+});
 
 // Data simulasi untuk Dashboard
 const ringkasan = ref({
@@ -40,7 +50,7 @@ const transaksiTerbaru = ref([
     
     <!-- Header -->
     <header class="px-8 py-6">
-      <h1 class="text-2xl font-bold text-slate-800">Selamat datang, Admin</h1>
+      <h1 class="text-2xl font-bold text-slate-800">Selamat datang, {{ userName }}</h1>
       <p class="text-sm text-slate-500 mt-1">Ringkasan penjualan dan operasional hari ini.</p>
     </header>
 
