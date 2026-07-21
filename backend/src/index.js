@@ -27,12 +27,14 @@ const roleRoutes = require('./routes/role.routes');
 const userRoutes = require('./routes/user.routes');
 const barangRoutes = require('./routes/barang.routes');
 const transaksiRoutes = require('./routes/transaksi.routes');
+const dashboardRoutes = require('./routes/dashboard.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/barang', barangRoutes);
 app.use('/api/transaksi', transaksiRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

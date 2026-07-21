@@ -1,16 +1,42 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import api from '../services/api';
+
+// ==========================================
+// DATA DARI DATABASE
+// ==========================================
+const masterBarangSwalayan = ref([]);
+
+const fetchBarang = async () => {
+  try {
+    const response = await api.get('/barang');
+    masterBarangSwalayan.value = response.data;
+  } catch (error) {
+    console.error('Error fetching barang:', error);
+  }
+};
+
+onMounted(() => {
+  fetchBarang();
+});
 
 // State simulasi
 const searchQuery = ref('');
 const uangDiterima = ref();
 
-// Data keranjang dummy
-const keranjang = ref([
-  { nama: 'Minyak Goreng Sawit 2L', qty: 2, harga: 32000, subtotal: 64000 },
-  { nama: 'Beras Premium 5 Kg', qty: 1, harga: 68000, subtotal: 68000 },
-  { nama: 'Gula Pasir Kemasan 1Kg', qty: 4, harga: 17000, subtotal: 68000 }
-]);
+// Notifikasi Modal
+const isNotifModalOpen = ref(false);
+const notifTitle = ref('Pemberitahuan');
+const notifMessage = ref('');
+const tampilkanNotif = (title, message) => {
+  notifTitle.value = title;
+  notifMessage.value = message;
+  isNotifModalOpen.value = true;
+};
+const tutupNotif = () => isNotifModalOpen.value = false;
+
+// Data keranjang kosong
+const keranjang = ref([]);
 
 // State untuk Diskon
 const diskonRupiah = ref(0);
@@ -59,6 +85,38 @@ const hitungDariPersen = () => {
 };
 
 // ==========================================
+// PENCARIAN & AUTOCOMPLETE
+// ==========================================
+const hasilPencarian = computed(() => {
+  if (searchQuery.value === '') return [];
+  const query = searchQuery.value.toLowerCase();
+  return masterBarangSwalayan.value.filter(item => 
+    (item.nama_barang && item.nama_barang.toLowerCase().includes(query)) || 
+    (item.barcode && item.barcode.toLowerCase().includes(query))
+  );
+});
+
+const tambahKeFaktur = (item) => {
+  const barangAda = keranjang.value.find(b => b.id_barang === item.id_barang);
+  
+  if (barangAda) {
+    barangAda.qty += 1;
+    barangAda.subtotal = barangAda.qty * barangAda.harga;
+  } else {
+    keranjang.value.unshift({
+      id_barang: item.id_barang,
+      nama: item.nama_barang,
+      satuan: item.satuan_swalayan,
+      qty: 1,
+      harga: item.harga_swalayan || 0,
+      subtotal: item.harga_swalayan || 0
+    });
+  }
+  searchQuery.value = '';
+  sinkronisasiDiskon();
+};
+
+// ==========================================
 // KENDALI KUANTITAS & KERANJANG
 // ==========================================
 const sinkronisasiDiskon = () => {
@@ -95,6 +153,60 @@ const setUang = (nominal) => {
 const formatRupiah = (angka) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
 };
+
+const isProcessing = ref(false);
+
+const prosesTransaksi = async () => {
+  if (keranjang.value.length === 0) {
+    return tampilkanNotif('Keranjang Kosong', 'Silakan tambahkan barang terlebih dahulu.');
+  }
+  
+  if (!uangDiterima.value || uangDiterima.value < totalBelanjaAkhir.value) {
+    return tampilkanNotif('Uang Kurang', 'Nominal uang yang diterima kurang dari total bayar.');
+  }
+
+  isProcessing.value = true;
+
+  try {
+    const itemsPayload = keranjang.value.map(item => {
+      // Proporsikan diskon global ke masing-masing item berdasarkan subtotalnya
+      const proportion = subtotalBelanja.value > 0 ? (item.subtotal / subtotalBelanja.value) : 0;
+      const itemDiskon = Math.round(proportion * (Number(diskonRupiah.value) || 0));
+      
+      return {
+        id_barang: item.id_barang,
+        quantity: item.qty,
+        diskon: itemDiskon
+      };
+    });
+
+    const payload = {
+      jenis_transaksi: 'Swalayan',
+      total_bayar: totalBelanjaAkhir.value,
+      items: itemsPayload
+    };
+
+    const response = await api.post('/transaksi', payload);
+    
+    tampilkanNotif('Transaksi Berhasil', 'Transaksi berhasil disimpan. Kembalian: ' + formatRupiah(kembalian.value));
+    
+    // Reset Kasir
+    keranjang.value = [];
+    uangDiterima.value = '';
+    diskonRupiah.value = 0;
+    diskonPersen.value = 0;
+    searchQuery.value = '';
+    
+    // Refresh stok
+    await fetchBarang();
+
+  } catch (error) {
+    console.error('Error processing transaction:', error);
+    tampilkanNotif('Transaksi Gagal', error.response?.data?.message || 'Terjadi kesalahan saat menyimpan transaksi.');
+  } finally {
+    isProcessing.value = false;
+  }
+};
 </script>
 
 <template>
@@ -112,21 +224,44 @@ const formatRupiah = (angka) => {
     <div class="flex-1 flex p-5 gap-5 overflow-hidden">
       
       <!-- Kiri: Tabel Barang -->
-      <div class="flex-1 flex flex-col h-full border border-slate-300 bg-white rounded-lg shadow-sm overflow-hidden">
-        <div class="p-3 border-b border-slate-200 bg-slate-50 flex items-center gap-3">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input 
-            type="text" 
-            v-model="searchQuery"
-            placeholder="Scan barcode / cari barang..." 
-            class="w-full bg-transparent border-none focus:outline-none text-base text-slate-800"
-            autofocus
-          >
+      <div class="flex-1 flex flex-col h-full border border-slate-300 bg-white rounded-lg shadow-sm overflow-hidden relative">
+        <div class="relative w-full z-20">
+          <div class="p-3 border-b border-slate-200 bg-slate-50 flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input 
+              type="text" 
+              v-model="searchQuery"
+              placeholder="Scan barcode / cari barang..." 
+              class="w-full bg-transparent border-none focus:outline-none text-base text-slate-800"
+              autofocus
+            >
+          </div>
+
+          <!-- DROPDOWN PENCARIAN -->
+          <div v-if="searchQuery.length > 0" class="absolute w-full top-full left-0 bg-white border-b border-x border-slate-300 shadow-lg max-h-60 overflow-y-auto rounded-b-md">
+            <ul v-if="hasilPencarian.length > 0">
+              <li 
+                v-for="item in hasilPencarian" 
+                :key="item.id_barang"
+                @click="tambahKeFaktur(item)"
+                class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-slate-100 flex justify-between items-center transition-colors"
+              >
+                <div>
+                  <span class="font-medium text-slate-800">{{ item.nama_barang }}</span>
+                  <span class="text-xs text-slate-500 ml-2">({{ item.satuan_swalayan || '-' }})</span>
+                </div>
+                <span class="text-sm font-bold text-slate-600">{{ formatRupiah(item.harga_swalayan) }}</span>
+              </li>
+            </ul>
+            <div v-else class="px-4 py-3 text-sm text-slate-500 bg-slate-50 text-center">
+              Barang tidak ditemukan.
+            </div>
+          </div>
         </div>
 
-        <div class="flex-1 overflow-auto">
+        <div class="flex-1 overflow-auto z-10">
           <table class="w-full text-left text-sm text-slate-600">
             <thead class="bg-slate-100 text-slate-700 uppercase font-semibold text-xs sticky top-0 border-b border-slate-200">
               <tr>
@@ -249,11 +384,13 @@ const formatRupiah = (angka) => {
         <!-- Tombol Cetak -->
         <div class="mt-2">
           <button 
-            class="w-full font-bold py-3 text-sm rounded transition-colors"
+            @click="prosesTransaksi"
+            class="w-full font-bold py-3 text-sm rounded transition-colors flex justify-center items-center gap-2"
             :class="uangDiterima >= totalBelanjaAkhir ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md' : 'bg-slate-300 text-slate-500 cursor-not-allowed'"
-            :disabled="uangDiterima < totalBelanjaAkhir"
+            :disabled="uangDiterima < totalBelanjaAkhir || isProcessing"
           >
-            Bayar & Cetak Struk
+            <span v-if="isProcessing">Memproses...</span>
+            <span v-else>Bayar & Cetak Struk</span>
           </button>
           <p class="text-center text-[10px] text-slate-400 mt-1">Tekan F2 untuk jalan pintas</p>
         </div>
@@ -261,5 +398,31 @@ const formatRupiah = (angka) => {
       </div>
 
     </div>
+
+    <!-- MODAL NOTIFIKASI -->
+    <div v-if="isNotifModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+      <div class="bg-white w-full max-w-sm rounded-xl shadow-xl flex flex-col overflow-hidden">
+        <div class="p-6 flex flex-col items-center text-center">
+          <div class="w-16 h-16 rounded-full flex items-center justify-center mb-4"
+               :class="notifTitle.includes('Berhasil') ? 'bg-green-100 text-green-500' : 'bg-blue-100 text-blue-500'">
+            <svg v-if="notifTitle.includes('Berhasil')" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 class="font-bold text-lg text-slate-800 mb-2">{{ notifTitle }}</h3>
+          <p class="text-sm text-slate-500">{{ notifMessage }}</p>
+        </div>
+        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-center">
+          <button @click="tutupNotif" class="px-6 py-2 text-sm font-bold text-white rounded-md shadow-sm transition-colors w-full"
+                  :class="notifTitle.includes('Berhasil') ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'">
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+
   </main>
 </template>

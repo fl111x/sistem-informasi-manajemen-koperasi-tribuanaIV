@@ -13,12 +13,12 @@ const verifyToken = (req, res, next) => {
   }
 
   if (!token) {
-    return res.status(403).json({ message: 'No token provided' });
+    return res.status(403).json({ message: 'Token tidak ditemukan. Silakan login kembali.' });
   }
 
   jwt.verify(token, process.env.JWT_SECRET || 'supersecretjwtkey_koperasi', (err, decoded) => {
     if (err) {
-      return res.status(401).json({ message: 'Unauthorized, token failed' });
+      return res.status(401).json({ message: 'Akses ditolak, token tidak valid atau kadaluarsa.' });
     }
     
     req.user = decoded;
@@ -33,7 +33,7 @@ const verifyAdmin = async (req, res, next) => {
     const [roles] = await db.execute('SELECT * FROM Role WHERE id_role = ?', [id_role]);
 
     if (roles.length === 0) {
-      return res.status(403).json({ message: 'Role not found' });
+      return res.status(403).json({ message: 'Role (peran) tidak ditemukan' });
     }
 
     const roleName = roles[0].nama_role.toLowerCase();
@@ -41,10 +41,10 @@ const verifyAdmin = async (req, res, next) => {
     if (roleName.includes('admin')) {
       next();
     } else {
-      return res.status(403).json({ message: 'Require Admin Role' });
+      return res.status(403).json({ message: 'Akses khusus Admin. Anda tidak diizinkan.' });
     }
   } catch (error) {
-    return res.status(500).json({ message: 'Error checking admin role' });
+    return res.status(500).json({ message: 'Terjadi kesalahan saat memeriksa hak akses' });
   }
 };
 

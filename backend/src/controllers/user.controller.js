@@ -8,7 +8,7 @@ const getAllUsers = async (req, res) => {
     res.status(200).json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
   }
 };
 
@@ -19,13 +19,13 @@ const getUserById = async (req, res) => {
     const user = await UserModel.findById(id);
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'Pengguna tidak ditemukan' });
     }
 
     res.status(200).json(user);
   } catch (error) {
     console.error('Error fetching user by id:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
   }
 };
 
@@ -36,13 +36,13 @@ const updateUser = async (req, res) => {
     const { username, nama_pengguna, id_role, password } = req.body;
 
     if (!username || !nama_pengguna || !id_role) {
-      return res.status(400).json({ message: 'Username, nama_pengguna, and id_role are required' });
+      return res.status(400).json({ message: 'Username, nama pengguna, dan role wajib diisi' });
     }
 
     // Check if another user has the same username
     const existing = await UserModel.findByUsernameExceptId(username, id);
     if (existing) {
-      return res.status(400).json({ message: 'Username is already taken by another user' });
+      return res.status(400).json({ message: 'Username sudah digunakan oleh pengguna lain' });
     }
 
     let affectedRows = 0;
@@ -64,12 +64,12 @@ const updateUser = async (req, res) => {
       });
     }
 
-    if (affectedRows === 0) return res.status(404).json({ message: 'User not found' });
+    if (affectedRows === 0) return res.status(404).json({ message: 'Pengguna tidak ditemukan' });
 
-    res.status(200).json({ message: 'User updated successfully' });
+    res.status(200).json({ message: 'Pengguna berhasil diperbarui' });
   } catch (error) {
     console.error('Error updating user:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
   }
 };
 
@@ -80,20 +80,20 @@ const deleteUser = async (req, res) => {
 
     // Optional: Prevent admin from deleting themselves
     if (req.user && req.user.id_pengguna == id) {
-      return res.status(400).json({ message: 'Cannot delete your own account' });
+      return res.status(400).json({ message: 'Tidak dapat menghapus akun Anda sendiri' });
     }
 
     const affectedRows = await UserModel.delete(id);
 
     if (affectedRows === 0) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: 'Pengguna tidak ditemukan' });
     }
 
-    res.status(200).json({ message: 'User deleted successfully' });
+    res.status(200).json({ message: 'Pengguna berhasil dihapus' });
   } catch (error) {
     // If user has related transactions, this will fail due to foreign key constraints
     console.error('Error deleting user:', error);
-    res.status(500).json({ message: 'Error deleting user. Make sure user has no related transactions.' });
+    res.status(500).json({ message: 'Gagal menghapus pengguna. Make sure user has no related transactions.' });
   }
 };
 

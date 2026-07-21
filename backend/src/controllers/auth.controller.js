@@ -7,14 +7,14 @@ const login = async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
-      return res.status(400).json({ message: 'Username and password are required' });
+      return res.status(400).json({ message: 'Username dan password wajib diisi' });
     }
 
     // Check if user exists
     const user = await UserModel.findByUsername(username);
     
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Username atau password salah' });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -23,7 +23,7 @@ const login = async (req, res) => {
       if (password === user.password) {
         console.warn(`User ${username} logged in with plain text password. Please update to hashed password.`);
       } else {
-        return res.status(401).json({ message: 'Invalid credentials' });
+        return res.status(401).json({ message: 'Username atau password salah' });
       }
     }
 
@@ -51,7 +51,7 @@ const login = async (req, res) => {
 
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
   }
 };
 
@@ -60,13 +60,13 @@ const register = async (req, res) => {
     const { username, password, nama_pengguna, id_role } = req.body;
 
     if (!username || !password || !nama_pengguna || !id_role) {
-      return res.status(400).json({ message: 'All fields are required' });
+      return res.status(400).json({ message: 'Semua kolom wajib diisi' });
     }
 
     // Check if user already exists
     const existing = await UserModel.findByUsername(username);
     if (existing) {
-      return res.status(400).json({ message: 'Username already exists' });
+      return res.status(400).json({ message: 'Username sudah terdaftar' });
     }
 
     // Hash password
@@ -87,7 +87,7 @@ const register = async (req, res) => {
 
   } catch (error) {
     console.error('Register error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
   }
 };
 
@@ -96,14 +96,14 @@ const resetPassword = async (req, res) => {
     const { username, new_password } = req.body;
 
     if (!username || !new_password) {
-      return res.status(400).json({ message: 'Username and new_password are required' });
+      return res.status(400).json({ message: 'Username dan password baru wajib diisi' });
     }
 
     // Check if user exists
     const user = await UserModel.findByUsername(username);
     
     if (!user) {
-      return res.status(404).json({ message: 'Username not found' });
+      return res.status(404).json({ message: 'Username tidak ditemukan' });
     }
 
     // Hash new password
@@ -112,17 +112,17 @@ const resetPassword = async (req, res) => {
     // Update password
     await UserModel.updatePassword(username, hashedPassword);
 
-    res.status(200).json({ message: 'Password reset successfully' });
+    res.status(200).json({ message: 'Password berhasil direset' });
 
   } catch (error) {
     console.error('Reset password error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
   }
 };
 
 const logout = (req, res) => {
   res.clearCookie('token');
-  res.status(200).json({ message: 'Logout successful' });
+  res.status(200).json({ message: 'Berhasil keluar (logout)' });
 };
 
 module.exports = {

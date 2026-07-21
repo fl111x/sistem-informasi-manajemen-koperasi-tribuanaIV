@@ -25,7 +25,7 @@ class BarangModel {
     const { 
       nama_barang, golongan, barcode, 
       harga_beli, harga_swalayan, harga_grosir, 
-      stok_swalayan, stok_grosir, 
+      stok_swalayan, stok_grosir, stok_minimal, 
       satuan_swalayan, satuan_grosir 
     } = data;
 
@@ -33,13 +33,13 @@ class BarangModel {
       `INSERT INTO Barang (
         nama_barang, golongan, barcode, 
         harga_beli, harga_swalayan, harga_grosir, 
-        stok_swalayan, stok_grosir, 
+        stok_swalayan, stok_grosir, stok_minimal, 
         satuan_swalayan, satuan_grosir
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         nama_barang, golongan || null, barcode || null,
         harga_beli || 0, harga_swalayan || 0, harga_grosir || 0,
-        stok_swalayan || 0, stok_grosir || 0,
+        stok_swalayan || 0, stok_grosir || 0, stok_minimal || 10,
         satuan_swalayan || null, satuan_grosir || null
       ]
     );
@@ -50,7 +50,7 @@ class BarangModel {
     const { 
       nama_barang, golongan, barcode, 
       harga_beli, harga_swalayan, harga_grosir, 
-      stok_swalayan, stok_grosir, 
+      stok_swalayan, stok_grosir, stok_minimal, 
       satuan_swalayan, satuan_grosir 
     } = data;
 
@@ -58,13 +58,13 @@ class BarangModel {
       `UPDATE Barang SET 
         nama_barang = ?, golongan = ?, barcode = ?, 
         harga_beli = ?, harga_swalayan = ?, harga_grosir = ?, 
-        stok_swalayan = ?, stok_grosir = ?, 
+        stok_swalayan = ?, stok_grosir = ?, stok_minimal = ?, 
         satuan_swalayan = ?, satuan_grosir = ?
        WHERE id_barang = ?`,
       [
         nama_barang, golongan || null, barcode || null,
         harga_beli || 0, harga_swalayan || 0, harga_grosir || 0,
-        stok_swalayan || 0, stok_grosir || 0,
+        stok_swalayan || 0, stok_grosir || 0, stok_minimal || 10,
         satuan_swalayan || null, satuan_grosir || null,
         id
       ]

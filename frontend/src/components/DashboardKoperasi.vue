@@ -1,7 +1,54 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 
+import api from '../services/api';
+
 const userName = ref('Admin');
+
+const ringkasan = ref({
+  omzetSwalayan: 'Rp 0',
+  omzetGrosir: 'Rp 0',
+  totalOmzet: 'Rp 0',
+  stokKritis: 0
+});
+
+const dataGrafik = ref([]);
+const peringatanStok = ref([]);
+const transaksiTerbaru = ref([]);
+
+const fetchDashboardData = async () => {
+  try {
+    const response = await api.get('/dashboard');
+    ringkasan.value = response.data.ringkasan;
+    
+    // Convert numerical values to percentages for the chart height
+    // Find the max value to normalize
+    let maxVal = 1;
+    response.data.dataGrafik.forEach(g => {
+      if (g.swalayan > maxVal) maxVal = g.swalayan;
+      if (g.grosir > maxVal) maxVal = g.grosir;
+    });
+
+    dataGrafik.value = response.data.dataGrafik.map(g => ({
+      hari: g.hari,
+      swalayan: maxVal > 1 ? (g.swalayan / maxVal) * 100 : 0,
+      grosir: maxVal > 1 ? (g.grosir / maxVal) * 100 : 0,
+      tooltipSwalayan: g.swalayan,
+      tooltipGrosir: g.grosir
+    }));
+
+    const peringatanStokData = response.data.peringatanStok.map(stok => ({
+      nama: stok.nama,
+      kode: stok.kode,
+      sisa: Math.min(stok.stok_swalayan, stok.stok_grosir),
+      min: stok.min
+    }));
+    peringatanStok.value = peringatanStokData;
+    transaksiTerbaru.value = response.data.transaksiTerbaru;
+  } catch (error) {
+    console.error('Error fetching dashboard data:', error);
+  }
+};
 
 onMounted(() => {
   const userData = localStorage.getItem('user');
@@ -9,39 +56,8 @@ onMounted(() => {
     const user = JSON.parse(userData);
     userName.value = user.nama_pengguna || user.username || 'Pengguna';
   }
+  fetchDashboardData();
 });
-
-// Data simulasi untuk Dashboard
-const ringkasan = ref({
-  omzetSwalayan: 'Rp 35.200.000',
-  omzetGrosir: 'Rp 70.100.000',
-  totalOmzet: 'Rp 105.300.000',
-  stokKritis: 2
-});
-
-// Data simulasi untuk grafik batang (persentase tinggi bar)
-const dataGrafik = ref([
-  { hari: 'Sen', swalayan: 40, grosir: 60 },
-  { hari: 'Sel', swalayan: 30, grosir: 50 },
-  { hari: 'Rab', swalayan: 50, grosir: 70 },
-  { hari: 'Kam', swalayan: 35, grosir: 65 },
-  { hari: 'Jum', swalayan: 60, grosir: 80 },
-  { hari: 'Sab', swalayan: 75, grosir: 90 },
-  { hari: 'Min', swalayan: 45, grosir: 55 },
-]);
-
-const peringatanStok = ref([
-  { nama: 'Kopi Sachet 20 x 25 g', kode: 'BRG-0005', sisa: 34, min: 40 },
-  { nama: 'Pasta Gigi 190 g', kode: 'BRG-0010', sisa: 22, min: 36 },
-]);
-
-const transaksiTerbaru = ref([
-  { nota: 'SW-250716-0098', waktu: '14:32', sektor: 'Swalayan', kasir: 'Rina', total: 'Rp 84.500' },
-  { nota: 'GR-250716-0031', waktu: '14:20', sektor: 'Grosir', kasir: 'Budi', total: 'Rp 1.284.000' },
-  { nota: 'SW-250716-0097', waktu: '14:11', sektor: 'Swalayan', kasir: 'Rina', total: 'Rp 19.500' },
-  { nota: 'SW-250716-0096', waktu: '13:58', sektor: 'Swalayan', kasir: 'Dewi', total: 'Rp 156.000' },
-  { nota: 'GR-250716-0030', waktu: '13:40', sektor: 'Grosir', kasir: 'Budi', total: 'Rp 2.650.000' },
-]);
 </script>
 
 <template>
@@ -96,7 +112,7 @@ const transaksiTerbaru = ref([
       </div>
 
       <!-- Baris 2: Grafik & Peringatan Stok (3 Kolom) -->
-      <div class="grid grid-cols-3 gap-6">
+      <div class="grid grid-cols-3 gap-6 items-start">
         
         <!-- Grafik Batang (2 Kolom) -->
         <div class="col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
@@ -107,7 +123,7 @@ const transaksiTerbaru = ref([
           </div>
           
           <div class="flex items-end justify-between h-48 pt-4 border-b border-slate-200">
-            <div v-for="(item, index) in dataGrafik" :key="index" class="flex flex-col items-center gap-2 w-1/7">
+            <div v-for="(item, index) in dataGrafik" :key="index" class="flex flex-col items-center gap-2 flex-1 h-full justify-end">
               <div class="flex gap-1 items-end h-full w-full justify-center">
                 <!-- Bar Swalayan -->
                 <div class="w-4 bg-blue-500 rounded-t-sm" :style="`height: ${item.swalayan}%`"></div>
@@ -127,7 +143,7 @@ const transaksiTerbaru = ref([
             </svg>
             <h3 class="text-base font-bold text-slate-800">Peringatan Stok</h3>
           </div>
-          <div class="flex flex-col gap-4">
+          <div class="flex flex-col gap-4 max-h-[250px] overflow-y-auto pr-2">
             <div v-for="(stok, index) in peringatanStok" :key="index" class="border-b border-slate-100 pb-3 last:border-0">
               <div class="flex justify-between items-start mb-1">
                 <p class="text-sm font-semibold text-slate-800">{{ stok.nama }}</p>

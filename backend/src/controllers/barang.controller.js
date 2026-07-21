@@ -7,7 +7,7 @@ const getAllBarang = async (req, res) => {
     res.status(200).json(barang);
   } catch (error) {
     console.error('Error fetching barang:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
   }
 };
 
@@ -18,13 +18,13 @@ const getBarangById = async (req, res) => {
     const barang = await BarangModel.findById(id);
 
     if (!barang) {
-      return res.status(404).json({ message: 'Barang not found' });
+      return res.status(404).json({ message: 'Barang tidak ditemukan' });
     }
 
     res.status(200).json(barang);
   } catch (error) {
     console.error('Error fetching barang by ID:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
   }
 };
 
@@ -41,18 +41,19 @@ const createBarang = async (req, res) => {
       stok_swalayan, 
       satuan_swalayan, 
       stok_grosir, 
-      satuan_grosir 
+      satuan_grosir,
+      stok_minimal
     } = req.body;
 
     // Basic validation
     if (!barcode || !nama_barang || !harga_swalayan) {
-      return res.status(400).json({ message: 'barcode, nama_barang, and harga_swalayan are required' });
+      return res.status(400).json({ message: 'Barcode, nama barang, dan harga swalayan wajib diisi' });
     }
 
     // Check if barcode already exists
     const existing = await BarangModel.findByBarcode(barcode);
     if (existing) {
-      return res.status(400).json({ message: 'Barcode already exists' });
+      return res.status(400).json({ message: 'Barcode sudah terdaftar' });
     }
 
     const insertId = await BarangModel.create({
@@ -65,7 +66,8 @@ const createBarang = async (req, res) => {
       stok_swalayan, 
       satuan_swalayan, 
       stok_grosir, 
-      satuan_grosir
+      satuan_grosir,
+      stok_minimal
     });
 
     res.status(201).json({
@@ -74,7 +76,7 @@ const createBarang = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating barang:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
   }
 };
 
@@ -92,17 +94,18 @@ const updateBarang = async (req, res) => {
       stok_swalayan, 
       satuan_swalayan, 
       stok_grosir, 
-      satuan_grosir
+      satuan_grosir,
+      stok_minimal
     } = req.body;
 
     if (!barcode || !nama_barang || !harga_swalayan) {
-      return res.status(400).json({ message: 'barcode, nama_barang, and harga_swalayan are required' });
+      return res.status(400).json({ message: 'Barcode, nama barang, dan harga swalayan wajib diisi' });
     }
 
     // Check if new barcode clashes with another existing record
     const existing = await BarangModel.findByBarcodeExceptId(barcode, id);
     if (existing) {
-      return res.status(400).json({ message: 'Barcode is already taken by another item' });
+      return res.status(400).json({ message: 'Barcode sudah digunakan oleh barang lain' });
     }
 
     const affectedRows = await BarangModel.update(id, {
@@ -115,17 +118,18 @@ const updateBarang = async (req, res) => {
       stok_swalayan, 
       satuan_swalayan, 
       stok_grosir, 
-      satuan_grosir
+      satuan_grosir,
+      stok_minimal
     });
 
     if (affectedRows === 0) {
-      return res.status(404).json({ message: 'Barang not found' });
+      return res.status(404).json({ message: 'Barang tidak ditemukan' });
     }
 
-    res.status(200).json({ message: 'Barang updated successfully' });
+    res.status(200).json({ message: 'Barang berhasil diperbarui' });
   } catch (error) {
     console.error('Error updating barang:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
   }
 };
 
@@ -137,13 +141,13 @@ const deleteBarang = async (req, res) => {
     const affectedRows = await BarangModel.delete(id);
 
     if (affectedRows === 0) {
-      return res.status(404).json({ message: 'Barang not found' });
+      return res.status(404).json({ message: 'Barang tidak ditemukan' });
     }
 
-    res.status(200).json({ message: 'Barang deleted successfully' });
+    res.status(200).json({ message: 'Barang berhasil dihapus' });
   } catch (error) {
     console.error('Error deleting barang:', error);
-    res.status(500).json({ message: 'Error deleting barang. Make sure there are no related transactions.' });
+    res.status(500).json({ message: 'Gagal menghapus barang. Pastikan tidak ada transaksi terkait.' });
   }
 };
 

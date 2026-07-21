@@ -59,7 +59,7 @@ class TransaksiModel {
 
         const [barangRows] = await connection.execute('SELECT * FROM Barang WHERE id_barang = ? FOR UPDATE', [id_barang]);
         if (barangRows.length === 0) {
-          throw new Error(`Barang with ID ${id_barang} not found`);
+          throw new Error(`Barang dengan ID ${id_barang} tidak ditemukan`);
         }
 
         const barang = barangRows[0];
@@ -67,7 +67,7 @@ class TransaksiModel {
 
         if (jenis_transaksi === 'Swalayan') {
           if (barang.stok_swalayan < quantity) {
-            throw new Error(`Stok Swalayan insufficient for ${barang.nama_barang}`);
+            throw new Error(`Stok Swalayan tidak mencukupi untuk ${barang.nama_barang}`);
           }
           subtotal = (barang.harga_swalayan * quantity) - discount;
           calculatedTotal += subtotal;
@@ -78,7 +78,7 @@ class TransaksiModel {
           );
         } else if (jenis_transaksi === 'Grosir') {
           if (barang.stok_grosir < quantity) {
-            throw new Error(`Stok Grosir insufficient for ${barang.nama_barang}`);
+            throw new Error(`Stok Grosir tidak mencukupi untuk ${barang.nama_barang}`);
           }
           subtotal = (barang.harga_grosir * quantity) - discount;
           calculatedTotal += subtotal;

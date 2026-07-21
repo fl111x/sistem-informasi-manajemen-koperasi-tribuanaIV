@@ -7,11 +7,11 @@ const createTransaksi = async (req, res) => {
     
     // items should be an array of: { id_barang, quantity, diskon }
     if (!jenis_transaksi || !items || items.length === 0) {
-      return res.status(400).json({ message: 'jenis_transaksi and items are required' });
+      return res.status(400).json({ message: 'Jenis transaksi dan item wajib diisi' });
     }
 
     if (jenis_transaksi !== 'Swalayan' && jenis_transaksi !== 'Grosir') {
-      return res.status(400).json({ message: 'jenis_transaksi must be Swalayan or Grosir' });
+      return res.status(400).json({ message: 'Jenis transaksi harus Swalayan atau Grosir' });
     }
 
     const id_pengguna = req.user ? req.user.id_pengguna : null;
@@ -31,7 +31,7 @@ const createTransaksi = async (req, res) => {
 
   } catch (error) {
     console.error('Error creating transaksi:', error);
-    res.status(500).json({ message: error.message || 'Internal server error' });
+    res.status(500).json({ message: error.message || 'Terjadi kesalahan pada server internal' });
   }
 };
 
@@ -42,7 +42,7 @@ const getTransaksi = async (req, res) => {
     res.status(200).json(transaksi);
   } catch (error) {
     console.error('Error fetching transaksi:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
   }
 };
 
@@ -54,13 +54,13 @@ const getTransaksiById = async (req, res) => {
     const result = await TransaksiModel.findById(id);
 
     if (!result) {
-      return res.status(404).json({ message: 'Transaksi not found' });
+      return res.status(404).json({ message: 'Transaksi tidak ditemukan' });
     }
 
     res.status(200).json(result);
   } catch (error) {
     console.error('Error fetching transaksi by ID:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
   }
 };
 

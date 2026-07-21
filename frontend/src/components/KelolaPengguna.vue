@@ -18,6 +18,23 @@ const isModalOpen = ref(false);
 const modalMode = ref('tambah'); // 'tambah' atau 'edit'
 const idSedangDiedit = ref(null);
 
+const isDeleteModalOpen = ref(false);
+const itemToDelete = ref(null);
+
+const isNotifModalOpen = ref(false);
+const notifTitle = ref('Pemberitahuan');
+const notifMessage = ref('');
+
+const tampilkanNotif = (title, message) => {
+  notifTitle.value = title;
+  notifMessage.value = message;
+  isNotifModalOpen.value = true;
+};
+
+const tutupNotif = () => {
+  isNotifModalOpen.value = false;
+};
+
 const formPengguna = ref({
   nama_pengguna: '',
   username: '',
@@ -104,19 +121,30 @@ const simpanPengguna = async () => {
     tutupModal();
   } catch (error) {
     console.error('Error saving user:', error);
-    alert(error.response?.data?.message || 'Terjadi kesalahan saat menyimpan data.');
+    tampilkanNotif('Gagal Menyimpan', error.response?.data?.message || 'Terjadi kesalahan saat menyimpan data.');
   }
 };
 
-const hapusPengguna = async (id) => {
-  if (confirm('Apakah Anda yakin ingin menghapus pengguna ini?')) {
-    try {
-      await api.delete(`/users/${id}`);
-      await fetchData();
-    } catch (error) {
-      console.error('Error deleting user:', error);
-      alert(error.response?.data?.message || 'Gagal menghapus pengguna.');
-    }
+const bukaModalHapus = (user) => {
+  itemToDelete.value = user;
+  isDeleteModalOpen.value = true;
+};
+
+const tutupModalHapus = () => {
+  isDeleteModalOpen.value = false;
+  itemToDelete.value = null;
+};
+
+const konfirmasiHapus = async () => {
+  if (!itemToDelete.value) return;
+  
+  try {
+    await api.delete(`/users/${itemToDelete.value.id_pengguna}`);
+    await fetchData();
+    tutupModalHapus();
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    tampilkanNotif('Gagal Menghapus', error.response?.data?.message || 'Gagal menghapus pengguna.');
   }
 };
 </script>
@@ -198,7 +226,7 @@ const hapusPengguna = async (id) => {
                   <button @click="bukaModalEdit(user)" class="text-slate-400 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 p-1.5 rounded transition-colors" title="Edit Pengguna">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                   </button>
-                  <button @click="hapusPengguna(user.id_pengguna)" class="text-slate-400 hover:text-red-600 bg-slate-100 hover:bg-red-50 p-1.5 rounded transition-colors" title="Hapus Pengguna">
+                  <button @click="bukaModalHapus(user)" class="text-slate-400 hover:text-red-600 bg-slate-100 hover:bg-red-50 p-1.5 rounded transition-colors" title="Hapus Pengguna">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                   </button>
                 </div>
@@ -255,6 +283,58 @@ const hapusPengguna = async (id) => {
         <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
           <button @click="tutupModal" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-md transition-colors">Batal</button>
           <button @click="simpanPengguna" class="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm transition-colors">Simpan Data</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL KONFIRMASI HAPUS -->
+    <!-- ========================================== -->
+    <div v-if="isDeleteModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+      <div class="bg-white w-full max-w-sm rounded-xl shadow-xl flex flex-col overflow-hidden">
+        
+        <div class="p-6 flex flex-col items-center text-center">
+          <div class="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h3 class="font-bold text-lg text-slate-800 mb-2">Konfirmasi Hapus</h3>
+          <p class="text-sm text-slate-500 mb-1">Apakah Anda yakin ingin menghapus pengguna ini?</p>
+          <p class="text-sm font-semibold text-slate-700 bg-slate-50 px-3 py-2 rounded border border-slate-200 w-full mt-2">
+            {{ itemToDelete?.nama_pengguna || 'Pengguna Tidak Diketahui' }}
+          </p>
+          <p class="text-xs text-red-500 mt-3">Tindakan ini tidak dapat dibatalkan.</p>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+          <button @click="tutupModalHapus" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-md transition-colors w-full sm:w-auto">Batal</button>
+          <button @click="konfirmasiHapus" class="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm transition-colors w-full sm:w-auto">Hapus Akses</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL NOTIFIKASI -->
+    <!-- ========================================== -->
+    <div v-if="isNotifModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+      <div class="bg-white w-full max-w-sm rounded-xl shadow-xl flex flex-col overflow-hidden">
+        
+        <div class="p-6 flex flex-col items-center text-center">
+          <div class="w-16 h-16 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h3 class="font-bold text-lg text-slate-800 mb-2">{{ notifTitle }}</h3>
+          <p class="text-sm text-slate-500">{{ notifMessage }}</p>
+        </div>
+
+        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-center">
+          <button @click="tutupNotif" class="px-6 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm transition-colors w-full">Tutup</button>
         </div>
 
       </div>

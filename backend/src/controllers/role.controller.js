@@ -7,7 +7,7 @@ const getAllRoles = async (req, res) => {
     res.status(200).json(roles);
   } catch (error) {
     console.error('Error fetching roles:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
   }
 };
 
@@ -18,13 +18,13 @@ const getRoleById = async (req, res) => {
     const role = await RoleModel.findById(id);
     
     if (!role) {
-      return res.status(404).json({ message: 'Role not found' });
+      return res.status(404).json({ message: 'Role (peran) tidak ditemukan' });
     }
     
     res.status(200).json(role);
   } catch (error) {
     console.error('Error fetching role by id:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
   }
 };
 
@@ -34,7 +34,7 @@ const createRole = async (req, res) => {
     const { nama_role, deskripsi } = req.body;
 
     if (!nama_role) {
-      return res.status(400).json({ message: 'nama_role is required' });
+      return res.status(400).json({ message: 'Nama role wajib diisi' });
     }
 
     const insertId = await RoleModel.create({
@@ -48,7 +48,7 @@ const createRole = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating role:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
   }
 };
 
@@ -59,7 +59,7 @@ const updateRole = async (req, res) => {
     const { nama_role, deskripsi } = req.body;
 
     if (!nama_role) {
-      return res.status(400).json({ message: 'nama_role is required' });
+      return res.status(400).json({ message: 'Nama role wajib diisi' });
     }
 
     const affectedRows = await RoleModel.update(id, {
@@ -68,13 +68,13 @@ const updateRole = async (req, res) => {
     });
 
     if (affectedRows === 0) {
-      return res.status(404).json({ message: 'Role not found' });
+      return res.status(404).json({ message: 'Role (peran) tidak ditemukan' });
     }
 
-    res.status(200).json({ message: 'Role updated successfully' });
+    res.status(200).json({ message: 'Role berhasil diperbarui' });
   } catch (error) {
     console.error('Error updating role:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
   }
 };
 
@@ -86,14 +86,14 @@ const deleteRole = async (req, res) => {
     const affectedRows = await RoleModel.delete(id);
 
     if (affectedRows === 0) {
-      return res.status(404).json({ message: 'Role not found' });
+      return res.status(404).json({ message: 'Role (peran) tidak ditemukan' });
     }
 
-    res.status(200).json({ message: 'Role deleted successfully' });
+    res.status(200).json({ message: 'Role berhasil dihapus' });
   } catch (error) {
     // Usually fails if there's a foreign key constraint
     console.error('Error deleting role:', error);
-    res.status(500).json({ message: 'Error deleting role. Make sure no users are assigned to this role.' });
+    res.status(500).json({ message: 'Gagal menghapus role. Pastikan tidak ada pengguna dengan role ini.' });
   }
 };
 
