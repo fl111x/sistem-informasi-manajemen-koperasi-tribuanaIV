@@ -58,6 +58,32 @@ const hitungDariPersen = () => {
   }
 };
 
+// ==========================================
+// KENDALI KUANTITAS & KERANJANG
+// ==========================================
+const sinkronisasiDiskon = () => {
+  if (keranjang.value.length === 0) {
+    diskonRupiah.value = 0;
+    diskonPersen.value = 0;
+  } else {
+    if (diskonPersen.value > 0) hitungDariPersen();
+    else if (diskonRupiah.value > 0) hitungDariRupiah();
+  }
+};
+
+const updateQtyManual = (index) => {
+  if (keranjang.value[index].qty < 1 || keranjang.value[index].qty === '') {
+    keranjang.value[index].qty = 1;
+  }
+  keranjang.value[index].subtotal = keranjang.value[index].qty * keranjang.value[index].harga;
+  sinkronisasiDiskon();
+};
+
+const hapusDariKeranjang = (index) => {
+  keranjang.value.splice(index, 1); 
+  sinkronisasiDiskon();
+};
+
 const setUang = (nominal) => {
   if (nominal === 'Pas') {
     uangDiterima.value = totalBelanjaAkhir.value;
@@ -105,20 +131,47 @@ const formatRupiah = (angka) => {
             <thead class="bg-slate-100 text-slate-700 uppercase font-semibold text-xs sticky top-0 border-b border-slate-200">
               <tr>
                 <th class="px-4 py-2.5 w-1/2">Barang</th>
-                <th class="px-4 py-2.5 w-1/6 text-center">Qty</th>
+                <th class="px-2 py-2.5 w-1/6 text-center">Qty</th>
                 <th class="px-4 py-2.5 w-1/6 text-right">Harga</th>
                 <th class="px-4 py-2.5 text-right">Subtotal</th>
+                <th class="px-3 py-2.5 w-10 text-center"></th>
               </tr>
             </thead>
             <tbody>
               <tr v-if="keranjang.length === 0">
-                <td colspan="4" class="px-4 py-10 text-center text-slate-400">Keranjang kosong.</td>
+                <td colspan="5" class="px-4 py-10 text-center text-slate-400">Keranjang kosong.</td>
               </tr>
               <tr v-else class="border-b border-slate-100 hover:bg-slate-50 transition-colors" v-for="(item, index) in keranjang" :key="index">
                 <td class="px-4 py-2 font-medium text-slate-800">{{ item.nama }}</td>
-                <td class="px-4 py-2 text-center">{{ item.qty }}</td>
+                
+                <td class="px-2 py-2">
+                  <div class="flex items-center justify-center">
+                    <input 
+                      type="number" 
+                      v-model="item.qty" 
+                      @input="updateQtyManual(index)"
+                      min="1"
+                      class="w-16 h-8 text-center font-bold text-slate-800 border border-slate-300 rounded focus:outline-none focus:border-blue-500 bg-white"
+                      title="Ketik jumlah barang"
+                    >
+                  </div>
+                </td>
+
                 <td class="px-4 py-2 text-right">{{ formatRupiah(item.harga) }}</td>
                 <td class="px-4 py-2 text-right font-bold text-slate-800">{{ formatRupiah(item.subtotal) }}</td>
+                
+                <!-- HAPUS -->
+                <td class="px-3 py-2 text-center">
+                  <button 
+                    @click="hapusDariKeranjang(index)" 
+                    class="text-slate-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded transition-all focus:outline-none" 
+                    title="Hapus barang"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </td>
               </tr>
             </tbody>
           </table>
