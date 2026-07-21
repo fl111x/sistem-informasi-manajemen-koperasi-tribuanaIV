@@ -2,10 +2,9 @@ backlog
 
 * ~~fungsi login (login, lupa password, autentikasi login)~~
 * ~~fungsi kelola pengguna~~
-* fungsi master barang (CRUD barang)
-* fungsi kasir swalayan
-* fungsi kasir grosir
-* fungsi kelola user (CRUD user)
+* ~~fungsi master barang (CRUD barang)~~
+* ~~fungsi transaksi~~
+* ~~fungsi kelola user (CRUD user)~~
 * ~~pembuatan DB~~
 * fungsi laporan dan generate laporan
 * ~~fungsi logout~~

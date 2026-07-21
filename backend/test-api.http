@@ -1,0 +1,50 @@
+### 1. Login (Ganti password dengan password admin yang benar)
+# Pastikan server sudah berjalan (npm run dev)
+POST http://localhost:3000/api/auth/login
+Content-Type: application/json
+
+{
+    "username": "admin",
+    "password": "123" 
+}
+
+### 2. Tambah Data Barang (Karena database barang masih kosong)
+# Copy nilai "token" dari respon login di atas, lalu replace teks <TOKEN_DISINI> di bawah
+POST http://localhost:3000/api/barang
+Content-Type: application/json
+Authorization: Bearer <TOKEN_DISINI>
+
+{
+    "nama_barang": "Indomie Goreng",
+    "kategori": "Makanan",
+    "barcode": "896860123456",
+    "harga_swalayan": 3000,
+    "harga_grosir": 2800,
+    "stok_swalayan": 50,
+    "stok_grosir": 100,
+    "satuan_swalayan": "Bungkus",
+    "satuan_grosir": "Dus"
+}
+
+
+### 3. Lakukan Transaksi Penjualan
+# Pastikan id_barang di bawah sesuai dengan ID dari barang yang baru dibuat (biasanya 1)
+POST http://localhost:3000/api/transaksi
+Content-Type: application/json
+Authorization: Bearer <TOKEN_DISINI>
+
+{
+    "jenis_transaksi": "Swalayan",
+    "total_bayar": 6000,
+    "items": [
+        {
+            "id_barang": 1,
+            "quantity": 2,
+            "diskon": 0
+        }
+    ]
+}
+
+### 4. Cek Riwayat Transaksi 
+GET http://localhost:3000/api/transaksi
+Authorization: Bearer <TOKEN_DISINI>
