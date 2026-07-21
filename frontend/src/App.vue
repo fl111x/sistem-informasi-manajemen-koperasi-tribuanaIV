@@ -1,7 +1,12 @@
 <script setup>
-import KelolaBarang from './components/KelolaBarang.vue'
+import AdminLayout from './components/AdminLayout.vue'
+import KelolaPengguna from './components/KelolaPengguna.vue'
 </script>
 
 <template>
-  <KelolaBarang />
+  <!-- Panggil Bingkainya -->
+  <AdminLayout>
+    <!-- Masukkan Fotonya/Halamannya ke dalam Bingkai -->
+    <KelolaPengguna />
+  </AdminLayout>
 </template>
