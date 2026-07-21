@@ -1,6 +1,6 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const db = require('../config/db');
+const UserModel = require('../models/UserModel');
 
 const login = async (req, res) => {
   try {
@@ -11,25 +11,16 @@ const login = async (req, res) => {
     }
 
     // Check if user exists
-    const [users] = await db.execute('SELECT * FROM Pengguna WHERE username = ?', [username]);
+    const user = await UserModel.findByUsername(username);
     
-    if (users.length === 0) {
+    if (!user) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    const user = users[0];
-
-    // Note: If passwords in DB are plain text initially, you might need to handle that. 
-    // Here we assume passwords are hashed.
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
-    // Temp fallback for testing if database has plain text password:
-    // const isPasswordValid = (password === user.password) || await bcrypt.compare(password, user.password);
-
     if (!isPasswordValid) {
-      // Temporary check for plain text password to help during initial DB setup
       if (password === user.password) {
-        // Warning: This is just for initial testing if the DB wasn't seeded with hashed passwords
         console.warn(`User ${username} logged in with plain text password. Please update to hashed password.`);
       } else {
         return res.status(401).json({ message: 'Invalid credentials' });
@@ -73,8 +64,8 @@ const register = async (req, res) => {
     }
 
     // Check if user already exists
-    const [existing] = await db.execute('SELECT * FROM Pengguna WHERE username = ?', [username]);
-    if (existing.length > 0) {
+    const existing = await UserModel.findByUsername(username);
+    if (existing) {
       return res.status(400).json({ message: 'Username already exists' });
     }
 
@@ -82,14 +73,16 @@ const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert new user
-    const [result] = await db.execute(
-      'INSERT INTO Pengguna (username, password, nama_pengguna, id_role) VALUES (?, ?, ?, ?)',
-      [username, hashedPassword, nama_pengguna, id_role]
-    );
+    const insertId = await UserModel.create({
+      username,
+      password: hashedPassword,
+      nama_pengguna,
+      id_role
+    });
 
     res.status(201).json({
       message: 'User registered successfully',
-      userId: result.insertId
+      userId: insertId
     });
 
   } catch (error) {
@@ -107,9 +100,9 @@ const resetPassword = async (req, res) => {
     }
 
     // Check if user exists
-    const [users] = await db.execute('SELECT * FROM Pengguna WHERE username = ?', [username]);
+    const user = await UserModel.findByUsername(username);
     
-    if (users.length === 0) {
+    if (!user) {
       return res.status(404).json({ message: 'Username not found' });
     }
 
@@ -117,7 +110,7 @@ const resetPassword = async (req, res) => {
     const hashedPassword = await bcrypt.hash(new_password, 10);
 
     // Update password
-    await db.execute('UPDATE Pengguna SET password = ? WHERE username = ?', [hashedPassword, username]);
+    await UserModel.updatePassword(username, hashedPassword);
 
     res.status(200).json({ message: 'Password reset successfully' });
 

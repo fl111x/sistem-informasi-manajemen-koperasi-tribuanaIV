@@ -1,9 +1,9 @@
-const db = require('../config/db');
+const BarangModel = require('../models/BarangModel');
 
 // Get all barang
 const getAllBarang = async (req, res) => {
   try {
-    const [barang] = await db.execute('SELECT * FROM Barang');
+    const barang = await BarangModel.findAll();
     res.status(200).json(barang);
   } catch (error) {
     console.error('Error fetching barang:', error);
@@ -15,13 +15,13 @@ const getAllBarang = async (req, res) => {
 const getBarangById = async (req, res) => {
   try {
     const { id } = req.params;
-    const [barang] = await db.execute('SELECT * FROM Barang WHERE id_barang = ?', [id]);
+    const barang = await BarangModel.findById(id);
 
-    if (barang.length === 0) {
+    if (!barang) {
       return res.status(404).json({ message: 'Barang not found' });
     }
 
-    res.status(200).json(barang[0]);
+    res.status(200).json(barang);
   } catch (error) {
     console.error('Error fetching barang by ID:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -50,33 +50,27 @@ const createBarang = async (req, res) => {
     }
 
     // Check if barcode already exists
-    const [existing] = await db.execute('SELECT * FROM Barang WHERE barcode = ?', [barcode]);
-    if (existing.length > 0) {
+    const existing = await BarangModel.findByBarcode(barcode);
+    if (existing) {
       return res.status(400).json({ message: 'Barcode already exists' });
     }
 
-    const [result] = await db.execute(
-      `INSERT INTO Barang (
-        barcode, nama_barang, golongan, harga_beli, harga_swalayan, harga_grosir,
-        stok_swalayan, satuan_swalayan, stok_grosir, satuan_grosir
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        barcode, 
-        nama_barang, 
-        golongan || null,
-        harga_beli || 0,
-        harga_swalayan, 
-        harga_grosir || 0,
-        stok_swalayan || 0, 
-        satuan_swalayan || null, 
-        stok_grosir || 0, 
-        satuan_grosir || null
-      ]
-    );
+    const insertId = await BarangModel.create({
+      barcode, 
+      nama_barang, 
+      golongan,
+      harga_beli,
+      harga_swalayan, 
+      harga_grosir,
+      stok_swalayan, 
+      satuan_swalayan, 
+      stok_grosir, 
+      satuan_grosir
+    });
 
     res.status(201).json({
       message: 'Barang created successfully',
-      id_barang: result.insertId
+      id_barang: insertId
     });
   } catch (error) {
     console.error('Error creating barang:', error);
@@ -106,40 +100,25 @@ const updateBarang = async (req, res) => {
     }
 
     // Check if new barcode clashes with another existing record
-    const [existing] = await db.execute('SELECT id_barang FROM Barang WHERE barcode = ? AND id_barang != ?', [barcode, id]);
-    if (existing.length > 0) {
+    const existing = await BarangModel.findByBarcodeExceptId(barcode, id);
+    if (existing) {
       return res.status(400).json({ message: 'Barcode is already taken by another item' });
     }
 
-    const [result] = await db.execute(
-      `UPDATE Barang SET 
-        barcode = ?, 
-        nama_barang = ?, 
-        golongan = ?,
-        harga_beli = ?,
-        harga_swalayan = ?, 
-        harga_grosir = ?,
-        stok_swalayan = ?, 
-        satuan_swalayan = ?, 
-        stok_grosir = ?, 
-        satuan_grosir = ? 
-      WHERE id_barang = ?`,
-      [
-        barcode, 
-        nama_barang, 
-        golongan || null,
-        harga_beli || 0,
-        harga_swalayan, 
-        harga_grosir || 0,
-        stok_swalayan || 0, 
-        satuan_swalayan || null, 
-        stok_grosir || 0, 
-        satuan_grosir || null, 
-        id
-      ]
-    );
+    const affectedRows = await BarangModel.update(id, {
+      barcode, 
+      nama_barang, 
+      golongan,
+      harga_beli,
+      harga_swalayan, 
+      harga_grosir,
+      stok_swalayan, 
+      satuan_swalayan, 
+      stok_grosir, 
+      satuan_grosir
+    });
 
-    if (result.affectedRows === 0) {
+    if (affectedRows === 0) {
       return res.status(404).json({ message: 'Barang not found' });
     }
 
@@ -155,9 +134,9 @@ const deleteBarang = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const [result] = await db.execute('DELETE FROM Barang WHERE id_barang = ?', [id]);
+    const affectedRows = await BarangModel.delete(id);
 
-    if (result.affectedRows === 0) {
+    if (affectedRows === 0) {
       return res.status(404).json({ message: 'Barang not found' });
     }
 

@@ -1,12 +1,10 @@
-const db = require('../config/db');
+const UserModel = require('../models/UserModel');
 const bcrypt = require('bcrypt');
 
 // Get all users
 const getAllUsers = async (req, res) => {
   try {
-    const [users] = await db.execute(
-      'SELECT p.id_pengguna, p.username, p.nama_pengguna, p.id_role, r.nama_role FROM Pengguna p LEFT JOIN Role r ON p.id_role = r.id_role'
-    );
+    const users = await UserModel.findAll();
     res.status(200).json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -18,16 +16,13 @@ const getAllUsers = async (req, res) => {
 const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    const [users] = await db.execute(
-      'SELECT p.id_pengguna, p.username, p.nama_pengguna, p.id_role, r.nama_role FROM Pengguna p LEFT JOIN Role r ON p.id_role = r.id_role WHERE p.id_pengguna = ?',
-      [id]
-    );
+    const user = await UserModel.findById(id);
 
-    if (users.length === 0) {
+    if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    res.status(200).json(users[0]);
+    res.status(200).json(user);
   } catch (error) {
     console.error('Error fetching user by id:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -45,27 +40,31 @@ const updateUser = async (req, res) => {
     }
 
     // Check if another user has the same username
-    const [existing] = await db.execute('SELECT id_pengguna FROM Pengguna WHERE username = ? AND id_pengguna != ?', [username, id]);
-    if (existing.length > 0) {
+    const existing = await UserModel.findByUsernameExceptId(username, id);
+    if (existing) {
       return res.status(400).json({ message: 'Username is already taken by another user' });
     }
 
+    let affectedRows = 0;
     if (password) {
       // Update with new password
       const hashedPassword = await bcrypt.hash(password, 10);
-      const [result] = await db.execute(
-        'UPDATE Pengguna SET username = ?, nama_pengguna = ?, id_role = ?, password = ? WHERE id_pengguna = ?',
-        [username, nama_pengguna, id_role, hashedPassword, id]
-      );
-      if (result.affectedRows === 0) return res.status(404).json({ message: 'User not found' });
+      affectedRows = await UserModel.updateWithPassword(id, {
+        username,
+        password: hashedPassword,
+        nama_pengguna,
+        id_role
+      });
     } else {
       // Update without changing password
-      const [result] = await db.execute(
-        'UPDATE Pengguna SET username = ?, nama_pengguna = ?, id_role = ? WHERE id_pengguna = ?',
-        [username, nama_pengguna, id_role, id]
-      );
-      if (result.affectedRows === 0) return res.status(404).json({ message: 'User not found' });
+      affectedRows = await UserModel.updateWithoutPassword(id, {
+        username,
+        nama_pengguna,
+        id_role
+      });
     }
+
+    if (affectedRows === 0) return res.status(404).json({ message: 'User not found' });
 
     res.status(200).json({ message: 'User updated successfully' });
   } catch (error) {
@@ -84,9 +83,9 @@ const deleteUser = async (req, res) => {
       return res.status(400).json({ message: 'Cannot delete your own account' });
     }
 
-    const [result] = await db.execute('DELETE FROM Pengguna WHERE id_pengguna = ?', [id]);
+    const affectedRows = await UserModel.delete(id);
 
-    if (result.affectedRows === 0) {
+    if (affectedRows === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
 
