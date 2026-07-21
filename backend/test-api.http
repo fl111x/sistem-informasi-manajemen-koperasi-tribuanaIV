@@ -1,6 +1,13 @@
-### 1. Login (Ganti password dengan password admin yang benar)
-# Pastikan server sudah berjalan (npm run dev)
-POST http://localhost:3000/api/auth/login
+@baseUrl = http://localhost:3000/api
+@token = <ISI_TOKEN_ANDA_DISINI>
+
+# =================================================================
+# 1. AUTHENTICATION
+# =================================================================
+
+### Login
+# @name login
+POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
@@ -8,34 +15,153 @@ Content-Type: application/json
     "password": "123" 
 }
 
-### 2. Tambah Data Barang (Karena database barang masih kosong)
-# Copy nilai "token" dari respon login di atas, lalu replace teks <TOKEN_DISINI> di bawah
-POST http://localhost:3000/api/barang
+### Register (Hanya bisa dilakukan jika sudah login sebagai admin)
+POST {{baseUrl}}/auth/register
 Content-Type: application/json
-Authorization: Bearer <TOKEN_DISINI>
+Authorization: Bearer {{token}}
 
 {
-    "nama_barang": "Indomie Goreng",
-    "kategori": "Makanan",
-    "barcode": "896860123456",
-    "harga_swalayan": 3000,
-    "harga_grosir": 2800,
+    "username": "kasir_baru",
+    "password": "password123",
+    "nama_pengguna": "Kasir Toko",
+    "id_role": 2
+}
+
+### Reset Password
+POST {{baseUrl}}/auth/reset-password
+Content-Type: application/json
+
+{
+    "username": "kasir_baru",
+    "new_password": "passwordBaru321"
+}
+
+### Logout
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{token}}
+
+
+# =================================================================
+# 2. ROLE (MANAJEMEN HAK AKSES)
+# =================================================================
+
+### Ambil Semua Role
+GET {{baseUrl}}/roles
+
+### Ambil Role Berdasarkan ID
+GET {{baseUrl}}/roles/1
+
+### Tambah Role Baru
+POST {{baseUrl}}/roles
+Content-Type: application/json
+
+{
+    "nama_role": "Manager",
+    "deskripsi": "Manajer Koperasi"
+}
+
+### Update Role
+PUT {{baseUrl}}/roles/3
+Content-Type: application/json
+
+{
+    "nama_role": "Manager Utama",
+    "deskripsi": "Manajer yang mengepalai semua divisi"
+}
+
+### Hapus Role (Hanya bisa jika tidak ada user yang terikat ke role ini)
+DELETE {{baseUrl}}/roles/3
+
+
+# =================================================================
+# 3. USER (MANAJEMEN PENGGUNA)
+# =================================================================
+
+### Ambil Semua User
+GET {{baseUrl}}/users
+
+### Ambil User Berdasarkan ID
+GET {{baseUrl}}/users/1
+
+### Update User
+PUT {{baseUrl}}/users/2
+Content-Type: application/json
+
+{
+    "username": "kasir_baru",
+    "nama_pengguna": "Kasir Toko 1",
+    "id_role": 2,
+    "password": "passwordGanti123" 
+}
+
+### Hapus User (Hanya jika belum punya transaksi)
+DELETE {{baseUrl}}/users/2
+Authorization: Bearer {{token}}
+
+
+# =================================================================
+# 4. BARANG (MANAJEMEN PRODUK & STOK)
+# =================================================================
+
+### Ambil Semua Barang
+GET {{baseUrl}}/barang
+
+### Ambil Barang Berdasarkan ID
+GET {{baseUrl}}/barang/1
+
+### Tambah Barang Baru
+POST {{baseUrl}}/barang
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "nama_barang": "Teh Pucuk Harum 350ml",
+    "golongan": "Minuman",
+    "barcode": "896860123000",
+    "harga_beli": 3000,
+    "harga_swalayan": 4000,
+    "harga_grosir": 3800,
     "stok_swalayan": 50,
+    "stok_grosir": 100,
+    "satuan_swalayan": "Botol",
+    "satuan_grosir": "Dus"
+}
+
+### Update Data Barang
+PUT {{baseUrl}}/barang/1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "nama_barang": "Indomie Goreng Special",
+    "golongan": "Makanan",
+    "barcode": "896860123456",
+    "harga_beli": 2500,
+    "harga_swalayan": 3500,
+    "harga_grosir": 3000,
+    "stok_swalayan": 48,
     "stok_grosir": 100,
     "satuan_swalayan": "Bungkus",
     "satuan_grosir": "Dus"
 }
 
+### Hapus Barang (Hanya jika belum masuk ke tabel transaksi)
+DELETE {{baseUrl}}/barang/2
+Authorization: Bearer {{token}}
 
-### 3. Lakukan Transaksi Penjualan
-# Pastikan id_barang di bawah sesuai dengan ID dari barang yang baru dibuat (biasanya 1)
-POST http://localhost:3000/api/transaksi
+
+# =================================================================
+# 5. TRANSAKSI (PEMBELIAN)
+# =================================================================
+
+### Buat Transaksi Baru
+POST {{baseUrl}}/transaksi
 Content-Type: application/json
-Authorization: Bearer <TOKEN_DISINI>
+Authorization: Bearer {{token}}
 
 {
     "jenis_transaksi": "Swalayan",
-    "total_bayar": 6000,
+    "total_bayar": 7000,
     "items": [
         {
             "id_barang": 1,
@@ -45,6 +171,10 @@ Authorization: Bearer <TOKEN_DISINI>
     ]
 }
 
-### 4. Cek Riwayat Transaksi 
-GET http://localhost:3000/api/transaksi
-Authorization: Bearer <TOKEN_DISINI>
+### Lihat Riwayat Semua Transaksi
+GET {{baseUrl}}/transaksi
+Authorization: Bearer {{token}}
+
+### Lihat Detail Satu Transaksi Berdasarkan ID
+GET {{baseUrl}}/transaksi/1
+Authorization: Bearer {{token}}
