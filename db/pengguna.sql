@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Jul 20, 2026 at 03:45 AM
+-- Generation Time: Jul 21, 2026 at 03:06 AM
 -- Server version: 8.4.3
 -- PHP Version: 8.3.26
 
@@ -40,7 +40,11 @@ CREATE TABLE `pengguna` (
 --
 
 INSERT INTO `pengguna` (`id_pengguna`, `username`, `password`, `nama_pengguna`, `id_role`) VALUES
-(1, 'admin', '$2b$10$To/QRR7R0oBGo7Pcl4.7oeOcY01YDmkmgn840n0yYeVUJvVtBZJ5W', 'Administrator', 1);
+(1, 'admin', '$2b$10$To/QRR7R0oBGo7Pcl4.7oeOcY01YDmkmgn840n0yYeVUJvVtBZJ5W', 'Administrator', 1),
+(3, 'kasir_baru', '$2b$10$9hfX6WHJe0rM3UmZGl2nGOVF4K1bt7SjjM6fO3dDE9pmfyjP3l6yq', 'Kasir Toko', 2),
+(4, 'test1_grosir', '$2b$10$p0H1qmZfiDa5KYNfud0SSe9tEQfND7x3G6HEHnjR.9sE10SJ/Ob22', 'Ammar', 3),
+(5, 'aji', '$2b$10$VC5ObahiZHBGql0b51MpuuiNiCr/o4aqRn2bhK1tX9CC00qAz2Xy.', 'Aji Kartiko Hartanto', 3),
+(6, 'ammar', '$2b$10$EEQox/Iypa9DXA.VAUr9mOW8i04aZ.R/cAB2ScC1jDD.wgotV0c26', 'Ammar Bagas Fathurrahman Wantoro', 2);
 
 --
 -- Indexes for dumped tables
@@ -62,7 +66,7 @@ ALTER TABLE `pengguna`
 -- AUTO_INCREMENT for table `pengguna`
 --
 ALTER TABLE `pengguna`
-  MODIFY `id_pengguna` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id_pengguna` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- Constraints for dumped tables

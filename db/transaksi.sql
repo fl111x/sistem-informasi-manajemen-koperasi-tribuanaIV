@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Jul 20, 2026 at 03:45 AM
+-- Generation Time: Jul 21, 2026 at 03:06 AM
 -- Server version: 8.4.3
 -- PHP Version: 8.3.26
 
@@ -36,6 +36,13 @@ CREATE TABLE `transaksi` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
+-- Dumping data for table `transaksi`
+--
+
+INSERT INTO `transaksi` (`id_transaksi`, `waktu_transaksi`, `total_bayar`, `jenis_transaksi`, `id_pengguna`) VALUES
+(1, '2026-07-21 08:15:50', 6000.00, 'Swalayan', 1);
+
+--
 -- Indexes for dumped tables
 --
 
@@ -45,6 +52,16 @@ CREATE TABLE `transaksi` (
 ALTER TABLE `transaksi`
   ADD PRIMARY KEY (`id_transaksi`),
   ADD KEY `transaksi_ibfk_1` (`id_pengguna`);
+
+--
+-- AUTO_INCREMENT for dumped tables
+--
+
+--
+-- AUTO_INCREMENT for table `transaksi`
+--
+ALTER TABLE `transaksi`
+  MODIFY `id_transaksi` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- Constraints for dumped tables

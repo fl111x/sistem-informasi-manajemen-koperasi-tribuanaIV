@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Jul 20, 2026 at 03:45 AM
+-- Generation Time: Jul 21, 2026 at 03:06 AM
 -- Server version: 8.4.3
 -- PHP Version: 8.3.26
 
@@ -24,10 +24,10 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
--- Table structure for table `riwayat_transaksi`
+-- Table structure for table `detail_transaksi`
 --
 
-CREATE TABLE `riwayat_transaksi` (
+CREATE TABLE `detail_transaksi` (
   `id_transaksi` int NOT NULL,
   `id_barang` int NOT NULL,
   `quantity_barang` int NOT NULL,
@@ -36,13 +36,20 @@ CREATE TABLE `riwayat_transaksi` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
+-- Dumping data for table `detail_transaksi`
+--
+
+INSERT INTO `detail_transaksi` (`id_transaksi`, `id_barang`, `quantity_barang`, `diskon`, `subtotal`) VALUES
+(1, 1, 2, 0.00, 6000.00);
+
+--
 -- Indexes for dumped tables
 --
 
 --
--- Indexes for table `riwayat_transaksi`
+-- Indexes for table `detail_transaksi`
 --
-ALTER TABLE `riwayat_transaksi`
+ALTER TABLE `detail_transaksi`
   ADD PRIMARY KEY (`id_transaksi`,`id_barang`),
   ADD KEY `riwayat_transaksi_ibfk_2` (`id_barang`);
 
@@ -51,11 +58,11 @@ ALTER TABLE `riwayat_transaksi`
 --
 
 --
--- Constraints for table `riwayat_transaksi`
+-- Constraints for table `detail_transaksi`
 --
-ALTER TABLE `riwayat_transaksi`
-  ADD CONSTRAINT `riwayat_transaksi_ibfk_1` FOREIGN KEY (`id_transaksi`) REFERENCES `transaksi` (`id_transaksi`) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT `riwayat_transaksi_ibfk_2` FOREIGN KEY (`id_barang`) REFERENCES `barang` (`id_barang`);
+ALTER TABLE `detail_transaksi`
+  ADD CONSTRAINT `detail_transaksi_ibfk_1` FOREIGN KEY (`id_transaksi`) REFERENCES `transaksi` (`id_transaksi`),
+  ADD CONSTRAINT `detail_transaksi_ibfk_2` FOREIGN KEY (`id_barang`) REFERENCES `barang` (`id_barang`);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

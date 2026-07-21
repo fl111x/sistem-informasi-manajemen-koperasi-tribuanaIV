@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Jul 20, 2026 at 03:44 AM
+-- Generation Time: Jul 21, 2026 at 03:06 AM
 -- Server version: 8.4.3
 -- PHP Version: 8.3.26
 
@@ -40,8 +40,7 @@ CREATE TABLE `role` (
 INSERT INTO `role` (`id_role`, `nama_role`, `deskripsi`) VALUES
 (1, 'Admin Koperasi', 'Administrator sistem koperasi'),
 (2, 'Kasir Swalayan', 'Pegawai kasir di area swalayan'),
-(3, 'Kasir Grosir', 'Pegawai kasir di area swalayan'),
-(4, 'Admin Koperasi', 'Pegawai kasir di area swalayan');
+(3, 'Kasir Grosir', 'Pegawai kasir di area swalayan');
 
 --
 -- Indexes for dumped tables
