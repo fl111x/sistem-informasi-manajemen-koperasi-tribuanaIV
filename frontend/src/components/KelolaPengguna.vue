@@ -2,13 +2,13 @@
 import { ref, computed } from 'vue';
 
 // ==========================================
-// MOCK DATA: Database Pengguna
+// MOCK DATA: Database Pengguna (Tanpa Status)
 // ==========================================
 const daftarPengguna = ref([
-  { id: 1, nama: 'Budi Santoso', username: 'admin_budi', peran: 'Administrator', status: 'Aktif', terakhirLogin: '21 Jul 2026, 08:15' },
-  { id: 2, nama: 'Rina Melati', username: 'kasir_rina', peran: 'Kasir Swalayan', status: 'Aktif', terakhirLogin: '21 Jul 2026, 07:30' },
-  { id: 3, nama: 'Dewi Lestari', username: 'grosir_dewi', peran: 'Kasir Grosir', status: 'Aktif', terakhirLogin: '20 Jul 2026, 15:45' },
-  { id: 4, nama: 'Agus Pratama', username: 'kasir_agus', peran: 'Kasir Swalayan', status: 'Nonaktif', terakhirLogin: '10 Jun 2026, 14:00' },
+  { id: 1, nama: 'Budi Santoso', username: 'admin_budi', peran: 'Administrator', terakhirLogin: '21 Jul 2026, 08:15' },
+  { id: 2, nama: 'Rina Melati', username: 'kasir_rina', peran: 'Kasir Swalayan', terakhirLogin: '21 Jul 2026, 07:30' },
+  { id: 3, nama: 'Dewi Lestari', username: 'grosir_dewi', peran: 'Kasir Grosir', terakhirLogin: '20 Jul 2026, 15:45' },
+  { id: 4, nama: 'Agus Pratama', username: 'kasir_agus', peran: 'Kasir Swalayan', terakhirLogin: '10 Jun 2026, 14:00' },
 ]);
 
 const searchQuery = ref('');
@@ -20,12 +20,11 @@ const isModalOpen = ref(false);
 const modalMode = ref('tambah'); // 'tambah' atau 'edit'
 const idSedangDiedit = ref(null);
 
-// Form model
+// Form model (Tanpa Status)
 const formPengguna = ref({
   nama: '',
   username: '',
   peran: 'Kasir Swalayan',
-  status: 'Aktif',
   password: '' // Kosong saat diedit kecuali ingin diganti
 });
 
@@ -48,7 +47,7 @@ const dataDitampilkan = computed(() => {
 const bukaModalTambah = () => {
   modalMode.value = 'tambah';
   idSedangDiedit.value = null;
-  formPengguna.value = { nama: '', username: '', peran: 'Kasir Swalayan', status: 'Aktif', password: '' };
+  formPengguna.value = { nama: '', username: '', peran: 'Kasir Swalayan', password: '' };
   isModalOpen.value = true;
 };
 
@@ -60,7 +59,6 @@ const bukaModalEdit = (user) => {
     nama: user.nama, 
     username: user.username, 
     peran: user.peran, 
-    status: user.status, 
     password: '' 
   };
   isModalOpen.value = true;
@@ -79,7 +77,6 @@ const simpanPengguna = () => {
       nama: formPengguna.value.nama,
       username: formPengguna.value.username,
       peran: formPengguna.value.peran,
-      status: formPengguna.value.status,
       terakhirLogin: '-'
     });
   } else {
@@ -89,7 +86,6 @@ const simpanPengguna = () => {
       daftarPengguna.value[index].nama = formPengguna.value.nama;
       daftarPengguna.value[index].username = formPengguna.value.username;
       daftarPengguna.value[index].peran = formPengguna.value.peran;
-      daftarPengguna.value[index].status = formPengguna.value.status;
     }
   }
   tutupModal();
@@ -137,16 +133,15 @@ const hapusPengguna = (id) => {
         <table class="w-full text-left text-sm text-slate-600">
           <thead class="bg-slate-100 text-slate-600 uppercase font-bold text-[11px] tracking-wider border-b border-slate-200 sticky top-0 z-10">
             <tr>
-              <th class="px-5 py-4 w-1/4">Pengguna</th>
-              <th class="px-5 py-4 w-1/6">Peran (Role)</th>
-              <th class="px-5 py-4 w-1/6 text-center">Status</th>
-              <th class="px-5 py-4 w-1/5">Terakhir Login</th>
+              <th class="px-5 py-4 w-1/3">Pengguna</th>
+              <th class="px-5 py-4 w-1/4">Peran (Role)</th>
+              <th class="px-5 py-4 w-1/4">Terakhir Login</th>
               <th class="px-5 py-4 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="dataDitampilkan.length === 0">
-              <td colspan="5" class="px-5 py-12 text-center text-slate-400">Pengguna tidak ditemukan.</td>
+              <td colspan="4" class="px-5 py-12 text-center text-slate-400">Pengguna tidak ditemukan.</td>
             </tr>
             <tr v-else v-for="user in dataDitampilkan" :key="user.id" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
               
@@ -163,15 +158,6 @@ const hapusPengguna = (id) => {
                 <span class="inline-flex items-center px-2 py-1 rounded text-xs font-semibold"
                   :class="user.peran === 'Administrator' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-700'">
                   {{ user.peran }}
-                </span>
-              </td>
-
-              <!-- Kolom Status -->
-              <td class="px-5 py-3 text-center">
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
-                  :class="user.status === 'Aktif' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'">
-                  <div class="w-1.5 h-1.5 rounded-full" :class="user.status === 'Aktif' ? 'bg-green-500' : 'bg-red-500'"></div>
-                  {{ user.status }}
                 </span>
               </td>
 
@@ -222,22 +208,13 @@ const hapusPengguna = (id) => {
             <input type="text" v-model="formPengguna.username" placeholder="Masukkan username" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600">
           </div>
           
-          <div class="flex gap-4">
-            <div class="flex-1">
-              <label class="block text-sm font-semibold text-slate-700 mb-1">Peran (Role)</label>
-              <select v-model="formPengguna.peran" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 cursor-pointer">
-                <option>Administrator</option>
-                <option>Kasir Swalayan</option>
-                <option>Kasir Grosir</option>
-              </select>
-            </div>
-            <div class="flex-1">
-              <label class="block text-sm font-semibold text-slate-700 mb-1">Status</label>
-              <select v-model="formPengguna.status" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 cursor-pointer">
-                <option>Aktif</option>
-                <option>Nonaktif</option>
-              </select>
-            </div>
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1">Peran (Role)</label>
+            <select v-model="formPengguna.peran" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 cursor-pointer">
+              <option>Administrator</option>
+              <option>Kasir Swalayan</option>
+              <option>Kasir Grosir</option>
+            </select>
           </div>
 
           <div>
