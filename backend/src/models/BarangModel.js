@@ -2,22 +2,22 @@ const db = require('../config/db');
 
 class BarangModel {
   static async findAll() {
-    const [rows] = await db.execute('SELECT * FROM Barang');
+    const [rows] = await db.execute('SELECT * FROM Barang WHERE is_active = 1');
     return rows;
   }
 
   static async findById(id) {
-    const [rows] = await db.execute('SELECT * FROM Barang WHERE id_barang = ?', [id]);
+    const [rows] = await db.execute('SELECT * FROM Barang WHERE id_barang = ? AND is_active = 1', [id]);
     return rows[0];
   }
 
   static async findByBarcode(barcode) {
-    const [rows] = await db.execute('SELECT * FROM Barang WHERE barcode = ?', [barcode]);
+    const [rows] = await db.execute('SELECT * FROM Barang WHERE barcode = ? AND is_active = 1', [barcode]);
     return rows[0];
   }
 
   static async findByBarcodeExceptId(barcode, idToExclude) {
-    const [rows] = await db.execute('SELECT id_barang FROM Barang WHERE barcode = ? AND id_barang != ?', [barcode, idToExclude]);
+    const [rows] = await db.execute('SELECT id_barang FROM Barang WHERE barcode = ? AND id_barang != ? AND is_active = 1', [barcode, idToExclude]);
     return rows[0];
   }
 
@@ -73,7 +73,7 @@ class BarangModel {
   }
 
   static async delete(id) {
-    const [result] = await db.execute('DELETE FROM Barang WHERE id_barang = ?', [id]);
+    const [result] = await db.execute('UPDATE Barang SET is_active = 0 WHERE id_barang = ?', [id]);
     return result.affectedRows;
   }
 }
