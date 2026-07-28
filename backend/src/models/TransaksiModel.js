@@ -1,7 +1,7 @@
 const db = require('../config/db');
 
-class TransaksiModel {
-  static async findAll() {
+
+  const findAll = async () => {
     const [transaksi] = await db.execute(`
       SELECT t.*, p.nama_pengguna as nama_kasir 
       FROM Transaksi t 
@@ -11,7 +11,7 @@ class TransaksiModel {
     return transaksi;
   }
 
-  static async findById(id) {
+  const findById = async (id) => {
     // Get header
     const [transaksi] = await db.execute(`
       SELECT t.*, p.nama_pengguna as nama_kasir 
@@ -24,9 +24,9 @@ class TransaksiModel {
 
     // Get details
     const [details] = await db.execute(`
-      SELECT dt.*, b.nama_barang, b.barcode, b.satuan_swalayan, b.satuan_grosir 
+      SELECT dt.*, COALESCE(b.nama_barang, dt.snapshot_nama_barang) as nama_barang, b.barcode, b.satuan_swalayan, b.satuan_grosir 
       FROM detail_transaksi dt
-      JOIN Barang b ON dt.id_barang = b.id_barang
+      LEFT JOIN Barang b ON dt.id_barang = b.id_barang
       WHERE dt.id_transaksi = ?
     `, [id]);
 
@@ -36,7 +36,7 @@ class TransaksiModel {
     };
   }
 
-  static async createTransaction(data) {
+  const createTransaction = async (data) => {
     const { jenis_transaksi, total_bayar, items, id_pengguna } = data;
     const connection = await db.getConnection();
     
@@ -90,8 +90,8 @@ class TransaksiModel {
         }
 
         await connection.execute(
-          'INSERT INTO detail_transaksi (id_transaksi, id_barang, quantity_barang, diskon, subtotal) VALUES (?, ?, ?, ?, ?)',
-          [id_transaksi, id_barang, quantity, discount, subtotal]
+          'INSERT INTO detail_transaksi (id_transaksi, id_barang, quantity_barang, diskon, subtotal, snapshot_nama_barang) VALUES (?, ?, ?, ?, ?, ?)',
+          [id_transaksi, id_barang, quantity, discount, subtotal, barang.nama_barang]
         );
       }
 
@@ -113,6 +113,9 @@ class TransaksiModel {
       connection.release();
     }
   }
-}
 
-module.exports = TransaksiModel;
+module.exports = {
+  findAll,
+  findById,
+  createTransaction
+};

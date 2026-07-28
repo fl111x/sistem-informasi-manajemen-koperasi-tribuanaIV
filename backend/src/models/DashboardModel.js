@@ -1,7 +1,7 @@
 const db = require('../config/db');
 
-class DashboardModel {
-  static async getOmzet7Hari() {
+
+  const getOmzet7Hari = async () => {
     const query = `
       SELECT 
         jenis_transaksi,
@@ -14,7 +14,7 @@ class DashboardModel {
     return rows;
   }
 
-  static async getGrafik7Hari() {
+  const getGrafik7Hari = async () => {
     const query = `
       SELECT 
         DATE(waktu_transaksi) as tanggal,
@@ -29,7 +29,7 @@ class DashboardModel {
     return rows;
   }
 
-  static async getTransaksiTerbaru() {
+  const getTransaksiTerbaru = async () => {
     const query = `
       SELECT 
         t.id_transaksi as nota,
@@ -46,7 +46,7 @@ class DashboardModel {
     return rows;
   }
 
-  static async getStokKritis() {
+  const getStokKritis = async () => {
     // A item is critical if its swalayan stock OR grosir stock is <= stok_minimal
     const query = `
       SELECT 
@@ -62,6 +62,10 @@ class DashboardModel {
     const [rows] = await db.execute(query);
     return rows;
   }
-}
 
-module.exports = DashboardModel;
+module.exports = {
+  getOmzet7Hari,
+  getGrafik7Hari,
+  getTransaksiTerbaru,
+  getStokKritis
+};

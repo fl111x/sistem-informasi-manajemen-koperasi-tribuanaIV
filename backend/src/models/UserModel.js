@@ -1,7 +1,7 @@
 const db = require('../config/db');
 
-class UserModel {
-  static async findAll() {
+
+  const findAll = async () => {
     const [rows] = await db.execute(`
       SELECT p.id_pengguna, p.username, p.nama_pengguna, p.id_role, r.nama_role 
       FROM Pengguna p 
@@ -10,7 +10,7 @@ class UserModel {
     return rows;
   }
 
-  static async findById(id) {
+  const findById = async (id) => {
     const [rows] = await db.execute(`
       SELECT p.id_pengguna, p.username, p.nama_pengguna, p.id_role, r.nama_role 
       FROM Pengguna p 
@@ -20,7 +20,7 @@ class UserModel {
     return rows[0];
   }
 
-  static async findByUsername(username) {
+  const findByUsername = async (username) => {
     const [rows] = await db.execute(`
       SELECT p.*, r.nama_role 
       FROM Pengguna p 
@@ -30,12 +30,12 @@ class UserModel {
     return rows[0];
   }
 
-  static async findByUsernameExceptId(username, idToExclude) {
+  const findByUsernameExceptId = async (username, idToExclude) => {
     const [rows] = await db.execute('SELECT id_pengguna FROM Pengguna WHERE username = ? AND id_pengguna != ?', [username, idToExclude]);
     return rows[0];
   }
 
-  static async create(data) {
+  const create = async (data) => {
     const { username, password, nama_pengguna, id_role } = data;
     const [result] = await db.execute(
       'INSERT INTO Pengguna (username, password, nama_pengguna, id_role) VALUES (?, ?, ?, ?)',
@@ -44,7 +44,7 @@ class UserModel {
     return result.insertId;
   }
 
-  static async updateWithPassword(id, data) {
+  const updateWithPassword = async (id, data) => {
     const { username, password, nama_pengguna, id_role } = data;
     const [result] = await db.execute(
       'UPDATE Pengguna SET username = ?, password = ?, nama_pengguna = ?, id_role = ? WHERE id_pengguna = ?',
@@ -53,7 +53,7 @@ class UserModel {
     return result.affectedRows;
   }
 
-  static async updateWithoutPassword(id, data) {
+  const updateWithoutPassword = async (id, data) => {
     const { username, nama_pengguna, id_role } = data;
     const [result] = await db.execute(
       'UPDATE Pengguna SET username = ?, nama_pengguna = ?, id_role = ? WHERE id_pengguna = ?',
@@ -62,15 +62,24 @@ class UserModel {
     return result.affectedRows;
   }
 
-  static async updatePassword(username, hashedPassword) {
+  const updatePassword = async (username, hashedPassword) => {
     const [result] = await db.execute('UPDATE Pengguna SET password = ? WHERE username = ?', [hashedPassword, username]);
     return result.affectedRows;
   }
 
-  static async delete(id) {
+  const deleteData = async (id) => {
     const [result] = await db.execute('DELETE FROM Pengguna WHERE id_pengguna = ?', [id]);
     return result.affectedRows;
   }
-}
 
-module.exports = UserModel;
+module.exports = {
+  findAll,
+  findById,
+  findByUsername,
+  findByUsernameExceptId,
+  create,
+  updateWithPassword,
+  updateWithoutPassword,
+  updatePassword,
+  delete: deleteData
+};

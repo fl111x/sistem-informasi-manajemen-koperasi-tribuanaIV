@@ -1,17 +1,17 @@
 const db = require('../config/db');
 
-class RoleModel {
-  static async findAll() {
+
+  const findAll = async () => {
     const [rows] = await db.execute('SELECT * FROM Role');
     return rows;
   }
 
-  static async findById(id) {
+  const findById = async (id) => {
     const [rows] = await db.execute('SELECT * FROM Role WHERE id_role = ?', [id]);
     return rows[0];
   }
 
-  static async create(data) {
+  const create = async (data) => {
     const { nama_role, deskripsi } = data;
     const [result] = await db.execute(
       'INSERT INTO Role (nama_role, deskripsi) VALUES (?, ?)',
@@ -20,7 +20,7 @@ class RoleModel {
     return result.insertId;
   }
 
-  static async update(id, data) {
+  const update = async (id, data) => {
     const { nama_role, deskripsi } = data;
     const [result] = await db.execute(
       'UPDATE Role SET nama_role = ?, deskripsi = ? WHERE id_role = ?',
@@ -29,10 +29,15 @@ class RoleModel {
     return result.affectedRows;
   }
 
-  static async delete(id) {
+  const deleteData = async (id) => {
     const [result] = await db.execute('DELETE FROM Role WHERE id_role = ?', [id]);
     return result.affectedRows;
   }
-}
 
-module.exports = RoleModel;
+module.exports = {
+  findAll,
+  findById,
+  create,
+  update,
+  delete: deleteData
+};

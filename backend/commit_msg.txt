@@ -1,0 +1,9 @@
+feat: Refactor backend & implement Pembelian and Supplier modules
+
+- **Database:** Ditambahkan tabel `Supplier`, `Pembelian`, dan `Detail_Pembelian`.
+- **Modul Supplier:** Ditambahkan CRUD API untuk manajemen data Pemasok (Supplier).
+- **Modul Pembelian:** Ditambahkan fitur pembuatan PO. Mendukung pencatatan item baru yang langsung ditambahkan ke Master Barang dengan stok awal 0.
+- **Mutasi Gudang:** Ditambahkan alur mutasi persediaan. Apabila status pembelian diubah menjadi 'Dimutasi', stok barang di Master Barang (Swalayan/Grosir) akan otomatis bertambah sesuai barang yang diterima.
+- **Refactoring Arsitektur:** Seluruh `Model` diubah secara drastis dari menggunakan Class OOP (MVC Klasik) menjadi Functional/Procedural Module ekspor murni yang lebih sesuai dengan best-practice Node.js.
+- **Dokumentasi:** Pembuatan file `API_DOCS.md` berisi endpoint, referensi JSON Body, dan contoh response dari seluruh sistem.
+- **Project Structure:** Direktori dirapikan; seluruh skrip tes dipindah ke `test/`, skrip migrasi ke `migrations/`, dan skrip utilitas ke `scripts/`.
