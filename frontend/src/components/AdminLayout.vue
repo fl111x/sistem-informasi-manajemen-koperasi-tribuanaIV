@@ -64,6 +64,20 @@ const prosesLogout = async () => {
             Kelola Supplier
           </router-link>
 
+          <router-link v-if="user?.nama_role === 'Administrator' || user?.nama_role === 'Gudang' || user?.id_role === 1" to="/pembelian" 
+            class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"
+            :class="route.path === '/pembelian' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 font-medium hover:bg-slate-100'">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+            Gudang & Pembelian
+          </router-link>
+
+          <router-link v-if="user?.nama_role === 'Administrator' || user?.id_role === 1" to="/laporan-akuntansi" 
+            class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"
+            :class="route.path === '/laporan-akuntansi' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 font-medium hover:bg-slate-100'">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            Akuntansi & Laporan
+          </router-link>
+
           <router-link v-if="user?.nama_role === 'Administrator' || user?.id_role === 1" to="/kelola-pengguna" 
             class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"
             :class="route.path === '/kelola-pengguna' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 font-medium hover:bg-slate-100'">
