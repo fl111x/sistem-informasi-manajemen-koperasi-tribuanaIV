@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import api from '../services/api';
 
 // ==========================================
@@ -35,8 +35,22 @@ const tampilkanNotif = (title, message) => {
 };
 const tutupNotif = () => isNotifModalOpen.value = false;
 
-// Data keranjang kosong
-const keranjang = ref([]);
+// Data keranjang auto-save
+const savedKeranjang = localStorage.getItem('keranjangSwalayan');
+const keranjang = ref(savedKeranjang ? JSON.parse(savedKeranjang) : []);
+
+watch(keranjang, (newVal) => {
+  localStorage.setItem('keranjangSwalayan', JSON.stringify(newVal));
+}, { deep: true });
+
+// State Anggota & Pembayaran
+const nrpAnggota = ref('');
+const metodePembayaran = ref('Tunai'); // Tunai, EDC, QRIS
+
+// State Otorisasi Void
+const isVoidModalOpen = ref(false);
+const voidPin = ref('');
+const itemToVoid = ref(null);
 
 // State untuk Diskon
 const diskonRupiah = ref(0);
@@ -137,9 +151,20 @@ const updateQtyManual = (index) => {
   sinkronisasiDiskon();
 };
 
-const hapusDariKeranjang = (index) => {
-  keranjang.value.splice(index, 1); 
-  sinkronisasiDiskon();
+const mintaOtorisasiVoid = (index) => {
+  itemToVoid.value = index;
+  voidPin.value = '';
+  isVoidModalOpen.value = true;
+};
+
+const konfirmasiVoid = () => {
+  if (voidPin.value === '1234') { // Dummy PIN Supervisor
+    keranjang.value.splice(itemToVoid.value, 1);
+    sinkronisasiDiskon();
+    isVoidModalOpen.value = false;
+  } else {
+    tampilkanNotif('Otorisasi Gagal', 'PIN Supervisor salah. Void dibatalkan.');
+  }
 };
 
 const setUang = (nominal) => {
@@ -183,6 +208,8 @@ const prosesTransaksi = async () => {
     const payload = {
       jenis_transaksi: 'Swalayan',
       total_bayar: totalBelanjaAkhir.value,
+      metode_pembayaran: metodePembayaran.value,
+      nrp_anggota: nrpAnggota.value,
       items: itemsPayload
     };
 
@@ -192,10 +219,13 @@ const prosesTransaksi = async () => {
     
     // Reset Kasir
     keranjang.value = [];
+    localStorage.removeItem('keranjangSwalayan');
     uangDiterima.value = '';
     diskonRupiah.value = 0;
     diskonPersen.value = 0;
     searchQuery.value = '';
+    nrpAnggota.value = '';
+    metodePembayaran.value = 'Tunai';
     
     // Refresh stok
     await fetchBarang();
@@ -298,7 +328,7 @@ const prosesTransaksi = async () => {
                 <!-- HAPUS -->
                 <td class="px-3 py-2 text-center">
                   <button 
-                    @click="hapusDariKeranjang(index)" 
+                    @click="mintaOtorisasiVoid(index)" 
                     class="text-slate-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded transition-all focus:outline-none" 
                     title="Hapus barang"
                   >
@@ -319,8 +349,18 @@ const prosesTransaksi = async () => {
         <div class="flex flex-col gap-3">
           <h3 class="text-base font-bold text-slate-800 border-b border-slate-200 pb-1">Pembayaran</h3>
 
+          <!-- Keanggotaan -->
+          <div>
+            <label class="text-xs font-semibold text-slate-800 block mb-1">NRP Anggota (Opsional)</label>
+            <input 
+              type="text" v-model="nrpAnggota"
+              class="w-full border border-slate-300 p-2 rounded text-sm text-slate-800 focus:outline-none focus:border-blue-600"
+              placeholder="Masukkan NRP / ID Anggota..."
+            >
+          </div>
+
           <!-- Ringkasan -->
-          <div class="flex justify-between items-center text-slate-600 text-sm">
+          <div class="flex justify-between items-center text-slate-600 text-sm mt-2">
             <span>Total item</span>
             <span class="font-bold text-slate-800">{{ keranjang.length }}</span>
           </div>
@@ -351,13 +391,23 @@ const prosesTransaksi = async () => {
           </div>
 
           <!-- TOTAL AKHIR -->
-          <div class="flex justify-between items-end bg-blue-50 p-3 rounded border border-blue-100">
+          <div class="flex justify-between items-end bg-blue-50 p-3 rounded border border-blue-100 mt-2">
             <span class="text-blue-800 text-xs font-bold pb-1">TOTAL BAYAR</span>
             <span class="text-2xl font-black text-blue-600">{{ formatRupiah(totalBelanjaAkhir) }}</span>
           </div>
 
-          <!-- Uang Diterima -->
-          <div class="flex flex-col gap-1">
+          <!-- Metode Pembayaran -->
+          <div class="mt-2">
+            <label class="text-xs font-semibold text-slate-800 block mb-1">Metode Pembayaran</label>
+            <div class="grid grid-cols-3 gap-2">
+              <button @click="metodePembayaran = 'Tunai'" :class="metodePembayaran === 'Tunai' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'" class="py-1.5 text-xs font-bold rounded border border-slate-300">Tunai</button>
+              <button @click="metodePembayaran = 'EDC'" :class="metodePembayaran === 'EDC' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'" class="py-1.5 text-xs font-bold rounded border border-slate-300">EDC</button>
+              <button @click="metodePembayaran = 'QRIS'" :class="metodePembayaran === 'QRIS' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'" class="py-1.5 text-xs font-bold rounded border border-slate-300">QRIS</button>
+            </div>
+          </div>
+
+          <!-- Uang Diterima (Hanya Tampil Jika Tunai) -->
+          <div v-if="metodePembayaran === 'Tunai'" class="flex flex-col gap-1 mt-2">
             <label class="text-xs font-semibold text-slate-800">Uang Diterima</label>
             <input 
               type="number" v-model="uangDiterima"
@@ -366,16 +416,15 @@ const prosesTransaksi = async () => {
             >
           </div>
 
-          <!-- Tombol Nominal -->
-          <div class="grid grid-cols-4 gap-1.5">
+          <div v-if="metodePembayaran === 'Tunai'" class="grid grid-cols-4 gap-1.5">
             <button @click="setUang('Pas')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold py-1.5 rounded border border-slate-300">Uang Pas</button>
             <button @click="setUang(50000)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold py-1.5 rounded border border-slate-300">50 Ribu</button>
             <button @click="setUang(100000)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold py-1.5 rounded border border-slate-300">100 Ribu</button>
             <button @click="setUang(200000)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold py-1.5 rounded border border-slate-300">200 Ribu</button>
           </div>
 
-          <!-- Kembalian -->
-          <div class="flex justify-between items-center bg-slate-100 p-3 rounded border border-slate-200">
+          <!-- Kembalian (Hanya Tampil Jika Tunai) -->
+          <div v-if="metodePembayaran === 'Tunai'" class="flex justify-between items-center bg-slate-100 p-3 rounded border border-slate-200 mt-2">
             <span class="text-sm font-semibold text-slate-600">Kembalian</span>
             <span class="text-lg font-bold text-slate-800">{{ formatRupiah(kembalian) }}</span>
           </div>
@@ -386,8 +435,8 @@ const prosesTransaksi = async () => {
           <button 
             @click="prosesTransaksi"
             class="w-full font-bold py-3 text-sm rounded transition-colors flex justify-center items-center gap-2"
-            :class="uangDiterima >= totalBelanjaAkhir ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md' : 'bg-slate-300 text-slate-500 cursor-not-allowed'"
-            :disabled="uangDiterima < totalBelanjaAkhir || isProcessing"
+            :class="(metodePembayaran === 'Tunai' && uangDiterima >= totalBelanjaAkhir) || metodePembayaran !== 'Tunai' ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md' : 'bg-slate-300 text-slate-500 cursor-not-allowed'"
+            :disabled="(metodePembayaran === 'Tunai' && uangDiterima < totalBelanjaAkhir) || isProcessing"
           >
             <span v-if="isProcessing">Memproses...</span>
             <span v-else>Bayar & Cetak Struk</span>
@@ -420,6 +469,28 @@ const prosesTransaksi = async () => {
                   :class="notifTitle.includes('Berhasil') ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'">
             Tutup
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL OTORISASI VOID -->
+    <div v-if="isVoidModalOpen" class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+      <div class="bg-white w-full max-w-sm rounded-xl shadow-xl overflow-hidden">
+        <div class="p-6">
+          <h3 class="font-bold text-lg text-slate-800 mb-1 text-center">Otorisasi Void</h3>
+          <p class="text-sm text-slate-500 text-center mb-6">Masukkan PIN Supervisor (1234) untuk membatalkan barang.</p>
+          <input 
+            type="password" 
+            v-model="voidPin" 
+            placeholder="PIN Supervisor"
+            class="w-full border-b-2 border-slate-300 focus:border-red-500 text-center text-xl tracking-widest py-2 focus:outline-none bg-slate-50 mb-6"
+            autofocus
+            @keyup.enter="konfirmasiVoid"
+          >
+          <div class="flex gap-3">
+            <button @click="isVoidModalOpen = false" class="flex-1 py-2 rounded-md bg-slate-200 text-slate-700 font-bold hover:bg-slate-300">Batal</button>
+            <button @click="konfirmasiVoid" class="flex-1 py-2 rounded-md bg-red-600 text-white font-bold hover:bg-red-700">Void Item</button>
+          </div>
         </div>
       </div>
     </div>

@@ -1,31 +1,17 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import api from '../services/api';
+import { useAuthStore } from '../stores/auth';
 
 // useRoute digunakan untuk mendeteksi URL mana yang sedang aktif saat ini
 const route = useRoute();
 const router = useRouter();
-const user = ref(null);
-
-onMounted(() => {
-  const userData = localStorage.getItem('user');
-  if (userData) {
-    user.value = JSON.parse(userData);
-  }
-});
+const authStore = useAuthStore();
+const user = computed(() => authStore.user);
 
 const prosesLogout = async () => {
-  try {
-    await api.post('/auth/logout');
-    localStorage.removeItem('user');
-    router.push('/login');
-  } catch (error) {
-    console.error('Logout failed:', error);
-    // Still clear local data and redirect even if server fails
-    localStorage.removeItem('user');
-    router.push('/login');
-  }
+  await authStore.logout();
+  router.push('/login');
 };
 </script>
 
@@ -62,6 +48,20 @@ const prosesLogout = async () => {
             :class="route.path === '/kelola-barang' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 font-medium hover:bg-slate-100'">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
             Kelola Barang
+          </router-link>
+
+          <router-link v-if="user?.nama_role === 'Administrator' || user?.id_role === 1" to="/kelola-anggota" 
+            class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"
+            :class="route.path === '/kelola-anggota' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 font-medium hover:bg-slate-100'">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+            Kelola Anggota
+          </router-link>
+
+          <router-link v-if="user?.nama_role === 'Administrator' || user?.id_role === 1" to="/kelola-supplier" 
+            class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"
+            :class="route.path === '/kelola-supplier' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 font-medium hover:bg-slate-100'">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" /></svg>
+            Kelola Supplier
           </router-link>
 
           <router-link v-if="user?.nama_role === 'Administrator' || user?.id_role === 1" to="/kelola-pengguna" 

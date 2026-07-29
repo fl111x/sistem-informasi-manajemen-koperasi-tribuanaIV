@@ -1,9 +1,10 @@
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import api from '../services/api';
+import { useAuthStore } from '../stores/auth';
 
 const router = useRouter();
+const authStore = useAuthStore();
 
 // State untuk menyimpan input pengguna
 const namaPengguna = ref('');
@@ -51,13 +52,7 @@ const prosesLogin = async () => {
     isLoading.value = true;
     errorMessage.value = '';
     
-    const response = await api.post('/auth/login', {
-      username: namaPengguna.value,
-      password: kataSandi.value
-    });
-    
-    // Simpan informasi user (tanpa token karena token otomatis disimpan di HTTP-Only Cookie)
-    localStorage.setItem('user', JSON.stringify(response.data.user));
+    await authStore.login(namaPengguna.value, kataSandi.value);
     
     // Redirect ke halaman dashboard
     router.push('/');
