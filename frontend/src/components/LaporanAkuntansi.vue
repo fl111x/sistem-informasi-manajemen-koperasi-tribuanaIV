@@ -27,20 +27,19 @@ const fetchLaporanBelanja = async () => {
   try {
     isLoadingBelanja.value = true;
     
-    // Asumsikan backend memiliki endpoint /laporan/belanja-anggota
-    // Karena belum ada, kita simulasikan datanya
-    const response = await api.get('/laporan/belanja-anggota').catch(() => {
-      // Mock Data
-      return {
-        data: [
-          { id_transaksi: 101, nrp: '123456789', nama_anggota: 'Sertu Budi', waktu: '2026-07-28T10:00:00.000Z', total_belanja: 150000 },
-          { id_transaksi: 102, nrp: '198701012010121001', nama_anggota: 'Agus Santoso', waktu: '2026-07-28T14:30:00.000Z', total_belanja: 75000 },
-          { id_transaksi: 103, nrp: '123456789', nama_anggota: 'Sertu Budi', waktu: '2026-07-29T09:15:00.000Z', total_belanja: 200000 },
-        ]
-      };
-    });
-
-    riwayatBelanja.value = response.data;
+    const response = await api.get('/transaksi');
+    
+    // Map data to match what the frontend expects
+    const mappedData = response.data.map(trx => ({
+      id_transaksi: trx.id_transaksi,
+      nrp: trx.nrp,
+      nama_anggota: trx.nama_anggota || 'Bukan Anggota',
+      waktu: trx.waktu_transaksi,
+      total_belanja: parseFloat(trx.total_bayar)
+    }));
+    
+    // Filter out non-members from SHU if necessary (but let's just keep them for now, the SHU calculation handles null nrp)
+    riwayatBelanja.value = mappedData;
   } catch (error) {
     console.error('Gagal mengambil laporan:', error);
   } finally {

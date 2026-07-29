@@ -1,10 +1,14 @@
-const UserModel = require('../models/UserModel');
 const bcrypt = require('bcrypt');
+const db = require('../config/db');
 
 // Get all users
 const getAllUsers = async (req, res) => {
   try {
-    const users = await UserModel.findAll();
+    const [users] = await db.execute(`
+      SELECT p.id_pengguna, p.username, p.nama_pengguna, p.id_role, r.nama_role 
+      FROM Pengguna p 
+      LEFT JOIN Role r ON p.id_role = r.id_role
+    `);
     res.status(200).json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -16,7 +20,13 @@ const getAllUsers = async (req, res) => {
 const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    const user = await UserModel.findById(id);
+    const [rows] = await db.execute(`
+      SELECT p.id_pengguna, p.username, p.nama_pengguna, p.id_role, r.nama_role 
+      FROM Pengguna p 
+      LEFT JOIN Role r ON p.id_role = r.id_role 
+      WHERE p.id_pengguna = ?
+    `, [id]);
+    const user = rows[0];
 
     if (!user) {
       return res.status(404).json({ message: 'Pengguna tidak ditemukan' });
@@ -40,8 +50,8 @@ const updateUser = async (req, res) => {
     }
 
     // Check if another user has the same username
-    const existing = await UserModel.findByUsernameExceptId(username, id);
-    if (existing) {
+    const [existingRows] = await db.execute('SELECT id_pengguna FROM Pengguna WHERE username = ? AND id_pengguna != ?', [username, id]);
+    if (existingRows.length > 0) {
       return res.status(400).json({ message: 'Username sudah digunakan oleh pengguna lain' });
     }
 
@@ -49,19 +59,18 @@ const updateUser = async (req, res) => {
     if (password) {
       // Update with new password
       const hashedPassword = await bcrypt.hash(password, 10);
-      affectedRows = await UserModel.updateWithPassword(id, {
-        username,
-        password: hashedPassword,
-        nama_pengguna,
-        id_role
-      });
+      const [result] = await db.execute(
+        'UPDATE Pengguna SET username = ?, password = ?, nama_pengguna = ?, id_role = ? WHERE id_pengguna = ?',
+        [username, hashedPassword, nama_pengguna, id_role, id]
+      );
+      affectedRows = result.affectedRows;
     } else {
       // Update without changing password
-      affectedRows = await UserModel.updateWithoutPassword(id, {
-        username,
-        nama_pengguna,
-        id_role
-      });
+      const [result] = await db.execute(
+        'UPDATE Pengguna SET username = ?, nama_pengguna = ?, id_role = ? WHERE id_pengguna = ?',
+        [username, nama_pengguna, id_role, id]
+      );
+      affectedRows = result.affectedRows;
     }
 
     if (affectedRows === 0) return res.status(404).json({ message: 'Pengguna tidak ditemukan' });
@@ -83,9 +92,9 @@ const deleteUser = async (req, res) => {
       return res.status(400).json({ message: 'Tidak dapat menghapus akun Anda sendiri' });
     }
 
-    const affectedRows = await UserModel.delete(id);
+    const [result] = await db.execute('DELETE FROM Pengguna WHERE id_pengguna = ?', [id]);
 
-    if (affectedRows === 0) {
+    if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Pengguna tidak ditemukan' });
     }
 

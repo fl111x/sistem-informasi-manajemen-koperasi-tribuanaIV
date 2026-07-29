@@ -79,7 +79,7 @@ const bukaModalTambah = () => {
 
 const bukaModalEdit = (item) => {
   modalMode.value = 'edit';
-  idSedangDiedit.value = item.id_anggota;
+  idSedangDiedit.value = item.nrp;
   formAnggota.value = { ...item };
   isModalOpen.value = true;
 };
@@ -110,7 +110,7 @@ const tutupModalHapus = () => isDeleteModalOpen.value = false;
 
 const konfirmasiHapus = async () => {
   try {
-    await api.delete(`/anggota/${itemToDelete.value.id_anggota}`);
+    await api.delete(`/anggota/${itemToDelete.value.nrp}`);
     await fetchAnggota();
     tutupModalHapus();
     tampilkanNotif('Berhasil', 'Anggota dihapus.');

@@ -30,6 +30,7 @@ const transaksiRoutes = require('./routes/transaksi.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const supplierRoutes = require('./routes/supplier.routes');
 const pembelianRoutes = require('./routes/pembelian.routes');
+const anggotaRoutes = require('./routes/anggota.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/roles', roleRoutes);
@@ -39,6 +40,7 @@ app.use('/api/transaksi', transaksiRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/supplier', supplierRoutes);
 app.use('/api/pembelian', pembelianRoutes);
+app.use('/api/anggota', anggotaRoutes);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

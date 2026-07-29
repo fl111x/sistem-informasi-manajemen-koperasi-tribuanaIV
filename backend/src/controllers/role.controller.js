@@ -1,9 +1,9 @@
-const RoleModel = require('../models/RoleModel');
+const db = require('../config/db');
 
 // Get all roles
 const getAllRoles = async (req, res) => {
   try {
-    const roles = await RoleModel.findAll();
+    const [roles] = await db.execute('SELECT * FROM Role');
     res.status(200).json(roles);
   } catch (error) {
     console.error('Error fetching roles:', error);
@@ -15,7 +15,8 @@ const getAllRoles = async (req, res) => {
 const getRoleById = async (req, res) => {
   try {
     const { id } = req.params;
-    const role = await RoleModel.findById(id);
+    const [rows] = await db.execute('SELECT * FROM Role WHERE id_role = ?', [id]);
+    const role = rows[0];
     
     if (!role) {
       return res.status(404).json({ message: 'Role (peran) tidak ditemukan' });
@@ -37,14 +38,14 @@ const createRole = async (req, res) => {
       return res.status(400).json({ message: 'Nama role wajib diisi' });
     }
 
-    const insertId = await RoleModel.create({
-      nama_role,
-      deskripsi: deskripsi || null
-    });
+    const [result] = await db.execute(
+      'INSERT INTO Role (nama_role, deskripsi) VALUES (?, ?)',
+      [nama_role, deskripsi || null]
+    );
 
     res.status(201).json({
       message: 'Role created successfully',
-      id_role: insertId
+      id_role: result.insertId
     });
   } catch (error) {
     console.error('Error creating role:', error);
@@ -62,12 +63,12 @@ const updateRole = async (req, res) => {
       return res.status(400).json({ message: 'Nama role wajib diisi' });
     }
 
-    const affectedRows = await RoleModel.update(id, {
-      nama_role,
-      deskripsi: deskripsi || null
-    });
+    const [result] = await db.execute(
+      'UPDATE Role SET nama_role = ?, deskripsi = ? WHERE id_role = ?',
+      [nama_role, deskripsi || null, id]
+    );
 
-    if (affectedRows === 0) {
+    if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Role (peran) tidak ditemukan' });
     }
 
@@ -83,9 +84,9 @@ const deleteRole = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const affectedRows = await RoleModel.delete(id);
+    const [result] = await db.execute('DELETE FROM Role WHERE id_role = ?', [id]);
 
-    if (affectedRows === 0) {
+    if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Role (peran) tidak ditemukan' });
     }
 

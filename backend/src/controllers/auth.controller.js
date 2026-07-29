@@ -1,6 +1,6 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const UserModel = require('../models/UserModel');
+const db = require('../config/db');
 
 const login = async (req, res) => {
   try {
@@ -10,8 +10,13 @@ const login = async (req, res) => {
       return res.status(400).json({ message: 'Username dan password wajib diisi' });
     }
 
-    // Check if user exists
-    const user = await UserModel.findByUsername(username);
+    const [rows] = await db.execute(`
+      SELECT p.*, r.nama_role 
+      FROM Pengguna p 
+      LEFT JOIN Role r ON p.id_role = r.id_role 
+      WHERE p.username = ?
+    `, [username]);
+    const user = rows[0];
     
     if (!user) {
       return res.status(401).json({ message: 'Username atau password salah' });
@@ -27,21 +32,18 @@ const login = async (req, res) => {
       }
     }
 
-    // Generate JWT
     const token = jwt.sign(
       { id_pengguna: user.id_pengguna, id_role: user.id_role, username: user.username },
       process.env.JWT_SECRET || 'supersecretjwtkey_koperasi',
       { expiresIn: process.env.JWT_EXPIRES_IN || '1d' }
     );
 
-    // Remove password from response
     delete user.password;
 
-    // Set JWT in HTTP-Only Cookie
     res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 24 * 60 * 60 * 1000 // 1 day in milliseconds
+      maxAge: 24 * 60 * 60 * 1000
     });
 
     res.status(200).json({
@@ -63,26 +65,21 @@ const register = async (req, res) => {
       return res.status(400).json({ message: 'Semua kolom wajib diisi' });
     }
 
-    // Check if user already exists
-    const existing = await UserModel.findByUsername(username);
-    if (existing) {
+    const [existingRows] = await db.execute('SELECT username FROM Pengguna WHERE username = ?', [username]);
+    if (existingRows.length > 0) {
       return res.status(400).json({ message: 'Username sudah terdaftar' });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert new user
-    const insertId = await UserModel.create({
-      username,
-      password: hashedPassword,
-      nama_pengguna,
-      id_role
-    });
+    const [result] = await db.execute(
+      'INSERT INTO Pengguna (username, password, nama_pengguna, id_role) VALUES (?, ?, ?, ?)',
+      [username, hashedPassword, nama_pengguna, id_role]
+    );
 
     res.status(201).json({
       message: 'User registered successfully',
-      userId: insertId
+      userId: result.insertId
     });
 
   } catch (error) {
@@ -99,18 +96,14 @@ const resetPassword = async (req, res) => {
       return res.status(400).json({ message: 'Username dan password baru wajib diisi' });
     }
 
-    // Check if user exists
-    const user = await UserModel.findByUsername(username);
-    
-    if (!user) {
+    const [rows] = await db.execute('SELECT username FROM Pengguna WHERE username = ?', [username]);
+    if (rows.length === 0) {
       return res.status(404).json({ message: 'Username tidak ditemukan' });
     }
 
-    // Hash new password
     const hashedPassword = await bcrypt.hash(new_password, 10);
 
-    // Update password
-    await UserModel.updatePassword(username, hashedPassword);
+    await db.execute('UPDATE Pengguna SET password = ? WHERE username = ?', [hashedPassword, username]);
 
     res.status(200).json({ message: 'Password berhasil direset' });
 

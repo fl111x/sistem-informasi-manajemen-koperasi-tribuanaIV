@@ -1,9 +1,9 @@
-const BarangModel = require('../models/BarangModel');
+const db = require('../config/db');
 
 // Get all barang
 const getAllBarang = async (req, res) => {
   try {
-    const barang = await BarangModel.findAll();
+    const [barang] = await db.execute('SELECT * FROM Barang WHERE is_active = 1');
     res.status(200).json(barang);
   } catch (error) {
     console.error('Error fetching barang:', error);
@@ -15,7 +15,8 @@ const getAllBarang = async (req, res) => {
 const getBarangById = async (req, res) => {
   try {
     const { id } = req.params;
-    const barang = await BarangModel.findById(id);
+    const [rows] = await db.execute('SELECT * FROM Barang WHERE id_barang = ? AND is_active = 1', [id]);
+    const barang = rows[0];
 
     if (!barang) {
       return res.status(404).json({ message: 'Barang tidak ditemukan' });
@@ -51,28 +52,29 @@ const createBarang = async (req, res) => {
     }
 
     // Check if barcode already exists
-    const existing = await BarangModel.findByBarcode(barcode);
-    if (existing) {
+    const [existingRows] = await db.execute('SELECT * FROM Barang WHERE barcode = ? AND is_active = 1', [barcode]);
+    if (existingRows.length > 0) {
       return res.status(400).json({ message: 'Barcode sudah terdaftar' });
     }
 
-    const insertId = await BarangModel.create({
-      barcode, 
-      nama_barang, 
-      golongan,
-      harga_beli,
-      harga_swalayan, 
-      harga_grosir,
-      stok_swalayan, 
-      satuan_swalayan, 
-      stok_grosir, 
-      satuan_grosir,
-      stok_minimal
-    });
+    const [result] = await db.execute(
+      `INSERT INTO Barang (
+        nama_barang, golongan, barcode, 
+        harga_beli, harga_swalayan, harga_grosir, 
+        stok_swalayan, stok_grosir, stok_minimal, 
+        satuan_swalayan, satuan_grosir
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        nama_barang, golongan || null, barcode || null,
+        harga_beli || 0, harga_swalayan || 0, harga_grosir || 0,
+        stok_swalayan || 0, stok_grosir || 0, stok_minimal || 10,
+        satuan_swalayan || null, satuan_grosir || null
+      ]
+    );
 
     res.status(201).json({
       message: 'Barang created successfully',
-      id_barang: insertId
+      id_barang: result.insertId
     });
   } catch (error) {
     console.error('Error creating barang:', error);
@@ -103,26 +105,28 @@ const updateBarang = async (req, res) => {
     }
 
     // Check if new barcode clashes with another existing record
-    const existing = await BarangModel.findByBarcodeExceptId(barcode, id);
-    if (existing) {
+    const [existingRows] = await db.execute('SELECT id_barang FROM Barang WHERE barcode = ? AND id_barang != ? AND is_active = 1', [barcode, id]);
+    if (existingRows.length > 0) {
       return res.status(400).json({ message: 'Barcode sudah digunakan oleh barang lain' });
     }
 
-    const affectedRows = await BarangModel.update(id, {
-      barcode, 
-      nama_barang, 
-      golongan,
-      harga_beli,
-      harga_swalayan, 
-      harga_grosir,
-      stok_swalayan, 
-      satuan_swalayan, 
-      stok_grosir, 
-      satuan_grosir,
-      stok_minimal
-    });
+    const [result] = await db.execute(
+      `UPDATE Barang SET 
+        nama_barang = ?, golongan = ?, barcode = ?, 
+        harga_beli = ?, harga_swalayan = ?, harga_grosir = ?, 
+        stok_swalayan = ?, stok_grosir = ?, stok_minimal = ?, 
+        satuan_swalayan = ?, satuan_grosir = ?
+       WHERE id_barang = ?`,
+      [
+        nama_barang, golongan || null, barcode || null,
+        harga_beli || 0, harga_swalayan || 0, harga_grosir || 0,
+        stok_swalayan || 0, stok_grosir || 0, stok_minimal || 10,
+        satuan_swalayan || null, satuan_grosir || null,
+        id
+      ]
+    );
 
-    if (affectedRows === 0) {
+    if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Barang tidak ditemukan' });
     }
 
@@ -138,9 +142,9 @@ const deleteBarang = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const affectedRows = await BarangModel.delete(id);
+    const [result] = await db.execute('DELETE FROM Barang WHERE id_barang = ?', [id]);
 
-    if (affectedRows === 0) {
+    if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Barang tidak ditemukan' });
     }
 

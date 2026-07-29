@@ -1,11 +1,55 @@
-const DashboardModel = require('../models/DashboardModel');
+const db = require('../config/db');
 
 const getDashboardData = async (req, res) => {
   try {
-    const omzetSektor = await DashboardModel.getOmzet7Hari();
-    const grafik = await DashboardModel.getGrafik7Hari();
-    const transaksi = await DashboardModel.getTransaksiTerbaru();
-    const peringatanStok = await DashboardModel.getStokKritis();
+    const queryOmzet = `
+      SELECT 
+        jenis_transaksi,
+        COALESCE(SUM(total_bayar), 0) as total_omzet
+      FROM Transaksi 
+      WHERE waktu_transaksi >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+      GROUP BY jenis_transaksi
+    `;
+    const [omzetSektor] = await db.execute(queryOmzet);
+
+    const queryGrafik = `
+      SELECT 
+        DATE(waktu_transaksi) as tanggal,
+        SUM(CASE WHEN jenis_transaksi = 'Swalayan' THEN total_bayar ELSE 0 END) as omzet_swalayan,
+        SUM(CASE WHEN jenis_transaksi = 'Grosir' THEN total_bayar ELSE 0 END) as omzet_grosir
+      FROM Transaksi 
+      WHERE waktu_transaksi >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+      GROUP BY DATE(waktu_transaksi)
+      ORDER BY tanggal ASC
+    `;
+    const [grafik] = await db.execute(queryGrafik);
+
+    const queryTransaksi = `
+      SELECT 
+        t.id_transaksi as nota,
+        t.waktu_transaksi as waktu,
+        t.jenis_transaksi as sektor,
+        p.nama_pengguna as kasir,
+        t.total_bayar as total
+      FROM Transaksi t
+      LEFT JOIN Pengguna p ON t.id_pengguna = p.id_pengguna
+      ORDER BY t.waktu_transaksi DESC
+      LIMIT 5
+    `;
+    const [transaksi] = await db.execute(queryTransaksi);
+
+    const queryStok = `
+      SELECT 
+        nama_barang as nama,
+        barcode as kode,
+        stok_swalayan,
+        stok_grosir,
+        stok_minimal as min
+      FROM Barang 
+      WHERE stok_swalayan <= stok_minimal OR stok_grosir <= stok_minimal
+      ORDER BY nama_barang ASC
+    `;
+    const [peringatanStok] = await db.execute(queryStok);
 
     let omzetSwalayan = 0;
     let omzetGrosir = 0;

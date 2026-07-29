@@ -244,3 +244,71 @@ Endpoint standar CRUD untuk mengelola hak akses (`Role`) dan Pengguna (`Pengguna
 - `GET /users`
 - `POST /roles`
 - dsb.
+
+---
+
+## 7. Anggota Koperasi (`/api/anggota`)
+
+### `GET /anggota`
+- **Fungsi**: Mendapatkan semua daftar anggota aktif.
+- **Response (200 OK)**:
+  ```json
+  {
+    "data": [
+      {
+        "nrp": "12345678",
+        "nama": "Budi Santoso",
+        "pangkat": "Sersan",
+        "is_active": 1,
+        "created_at": "2026-07-29T01:26:21.000Z",
+        "updated_at": "2026-07-29T01:26:21.000Z"
+      }
+    ]
+  }
+  ```
+
+### `POST /anggota`
+- **Fungsi**: Menambahkan data anggota baru.
+- **Request Body**:
+  ```json
+  {
+    "nrp": "12345678",
+    "nama": "Budi Santoso",
+    "pangkat": "Sersan"
+  }
+  ```
+- **Response (201 Created)**: `{ "message": "Anggota berhasil ditambahkan" }`
+
+### Endpoint Lainnya:
+- `GET /anggota/:nrp` - Mendapatkan detail satu anggota berdasarkan NRP.
+- `PUT /anggota/:nrp` - Mengubah data anggota.
+- `DELETE /anggota/:nrp` - Menghapus (soft delete) anggota berdasarkan NRP.
+- `GET /anggota/:nrp/transaksi` - Mendapatkan riwayat pembelanjaan anggota beserta total akumulasi (SHU base).
+
+---
+
+## 8. Dashboard (`/api/dashboard`)
+
+### `GET /dashboard`
+- **Fungsi**: Mendapatkan data ringkasan untuk halaman dashboard.
+- **Response (200 OK)**:
+  ```json
+  {
+    "ringkasan": {
+      "omzetSwalayan": "Rp 5.000.000",
+      "omzetGrosir": "Rp 3.000.000",
+      "totalOmzet": "Rp 8.000.000",
+      "stokKritis": 5
+    },
+    "dataGrafik": [
+      { "hari": "Sen", "swalayan": 500000, "grosir": 300000 },
+      ...
+    ],
+    "transaksiTerbaru": [
+      { "nota": "TRX-10", "waktu": "10:00", "sektor": "Swalayan", "kasir": "Admin", "total": "Rp 150.000" }
+    ],
+    "peringatanStok": [
+      { "nama": "Indomie", "kode": "123", "stok_swalayan": 5, "stok_grosir": 10, "min": 10 }
+    ]
+  }
+  ```
