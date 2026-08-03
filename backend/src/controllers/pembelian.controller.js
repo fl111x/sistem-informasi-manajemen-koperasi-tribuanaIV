@@ -3,10 +3,10 @@ const db = require('../config/db');
 exports.getAllPembelian = async (req, res) => {
   try {
     const [pembelian] = await db.execute(`
-      SELECT p.*, s.nama_supplier, u.nama_pengguna as admin_pembelian
+      SELECT p.*, u.nama_pengguna as admin_pembelian, s.nama_supplier
       FROM Pembelian p
-      JOIN Supplier s ON p.id_supplier = s.id_supplier
       JOIN Pengguna u ON p.id_pengguna = u.id_pengguna
+      LEFT JOIN Supplier s ON p.id_supplier = s.id_supplier
       ORDER BY p.waktu_pembelian DESC
     `);
     res.status(200).json(pembelian);
@@ -20,10 +20,10 @@ exports.getPembelianById = async (req, res) => {
   try {
     const { id } = req.params;
     const [pembelianRows] = await db.execute(`
-      SELECT p.*, s.nama_supplier, u.nama_pengguna as admin_pembelian
+      SELECT p.*, u.nama_pengguna as admin_pembelian, s.nama_supplier
       FROM Pembelian p
-      JOIN Supplier s ON p.id_supplier = s.id_supplier
       JOIN Pengguna u ON p.id_pengguna = u.id_pengguna
+      LEFT JOIN Supplier s ON p.id_supplier = s.id_supplier
       WHERE p.id_pembelian = ?
     `, [id]);
     
@@ -32,7 +32,7 @@ exports.getPembelianById = async (req, res) => {
     }
 
     const [details] = await db.execute(`
-      SELECT dp.*, b.barcode, b.satuan_swalayan, b.satuan_grosir 
+      SELECT dp.*, b.barcode, b.harga_swalayan, b.harga_grosir, b.satuan_swalayan, b.satuan_grosir 
       FROM Detail_Pembelian dp
       LEFT JOIN Barang b ON dp.id_barang = b.id_barang
       WHERE dp.id_pembelian = ?
@@ -53,16 +53,26 @@ exports.getPembelianById = async (req, res) => {
 exports.createPembelian = async (req, res) => {
   const connection = await db.getConnection();
   try {
-    const { kategori, id_supplier, items } = req.body;
+    const { kategori, nama_supplier, items } = req.body;
     const id_pengguna = req.user.id_pengguna;
 
-    if (!kategori || !id_supplier || !items || items.length === 0) {
-      return res.status(400).json({ message: 'Data tidak lengkap (kategori, id_supplier, items wajib diisi)' });
+    if (!kategori || !nama_supplier || !items || items.length === 0) {
+      return res.status(400).json({ message: 'Data tidak lengkap (kategori, nama_supplier, items wajib diisi)' });
     }
 
     await connection.beginTransaction();
 
     let total_biaya = 0;
+
+    // Handle Supplier
+    let id_supplier;
+    const [suppRows] = await connection.execute('SELECT id_supplier FROM Supplier WHERE nama_supplier = ?', [nama_supplier]);
+    if (suppRows.length > 0) {
+      id_supplier = suppRows[0].id_supplier;
+    } else {
+      const [insertSupp] = await connection.execute('INSERT INTO Supplier (nama_supplier) VALUES (?)', [nama_supplier]);
+      id_supplier = insertSupp.insertId;
+    }
 
     const [pembelianResult] = await connection.execute(
       'INSERT INTO Pembelian (kategori, status, id_supplier, id_pengguna, total_biaya) VALUES (?, ?, ?, ?, ?)',
@@ -129,7 +139,7 @@ exports.createPembelian = async (req, res) => {
   } catch (error) {
     await connection.rollback();
     console.error(error);
-    res.status(500).json({ message: 'Terjadi kesalahan saat membuat data pembelian' });
+    res.status(500).json({ message: 'Terjadi kesalahan saat membuat data pembelian: ' + error.message });
   } finally {
     connection.release();
   }
@@ -167,13 +177,13 @@ exports.updateStatus = async (req, res) => {
         if (item.id_barang) {
           if (pembelian.kategori === 'Swalayan') {
             await connection.execute(
-              'UPDATE Barang SET stok_swalayan = stok_swalayan + ? WHERE id_barang = ?',
-              [item.jumlah, item.id_barang]
+              'UPDATE Barang SET stok_swalayan = stok_swalayan + ?, harga_beli = ? WHERE id_barang = ?',
+              [item.jumlah, item.harga_satuan, item.id_barang]
             );
           } else if (pembelian.kategori === 'Grosir') {
             await connection.execute(
-              'UPDATE Barang SET stok_grosir = stok_grosir + ? WHERE id_barang = ?',
-              [item.jumlah, item.id_barang]
+              'UPDATE Barang SET stok_grosir = stok_grosir + ?, harga_beli = ? WHERE id_barang = ?',
+              [item.jumlah, item.harga_satuan, item.id_barang]
             );
           }
         }

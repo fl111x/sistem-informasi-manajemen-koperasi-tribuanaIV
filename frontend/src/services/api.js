@@ -11,10 +11,10 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response && error.response.status === 401) {
-      // You can add logic here to redirect to login if unauthorized
+    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
       console.warn('Unauthorized access. Please login again.');
-      // window.location.href = '/login'; // Or use Vue Router programmatically if needed
+      localStorage.removeItem('user');
+      window.location.href = '/login'; 
     }
     return Promise.reject(error);
   }

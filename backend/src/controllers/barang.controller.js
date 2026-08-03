@@ -47,14 +47,16 @@ const createBarang = async (req, res) => {
     } = req.body;
 
     // Basic validation
-    if (!barcode || !nama_barang || !harga_swalayan) {
-      return res.status(400).json({ message: 'Barcode, nama barang, dan harga swalayan wajib diisi' });
+    if (!nama_barang) {
+      return res.status(400).json({ message: 'Nama barang wajib diisi' });
     }
 
-    // Check if barcode already exists
-    const [existingRows] = await db.execute('SELECT * FROM Barang WHERE barcode = ? AND is_active = 1', [barcode]);
-    if (existingRows.length > 0) {
-      return res.status(400).json({ message: 'Barcode sudah terdaftar' });
+    // Check if barcode already exists (if provided)
+    if (barcode) {
+      const [existingRows] = await db.execute('SELECT * FROM Barang WHERE barcode = ? AND is_active = 1', [barcode]);
+      if (existingRows.length > 0) {
+        return res.status(400).json({ message: 'Barcode sudah terdaftar' });
+      }
     }
 
     const [result] = await db.execute(
@@ -78,7 +80,7 @@ const createBarang = async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating barang:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
+    res.status(500).json({ message: 'Terjadi kesalahan pada server internal: ' + error.message });
   }
 };
 
@@ -100,14 +102,16 @@ const updateBarang = async (req, res) => {
       stok_minimal
     } = req.body;
 
-    if (!barcode || !nama_barang || !harga_swalayan) {
-      return res.status(400).json({ message: 'Barcode, nama barang, dan harga swalayan wajib diisi' });
+    if (!nama_barang) {
+      return res.status(400).json({ message: 'Nama barang wajib diisi' });
     }
 
     // Check if new barcode clashes with another existing record
-    const [existingRows] = await db.execute('SELECT id_barang FROM Barang WHERE barcode = ? AND id_barang != ? AND is_active = 1', [barcode, id]);
-    if (existingRows.length > 0) {
-      return res.status(400).json({ message: 'Barcode sudah digunakan oleh barang lain' });
+    if (barcode) {
+      const [existingRows] = await db.execute('SELECT id_barang FROM Barang WHERE barcode = ? AND id_barang != ? AND is_active = 1', [barcode, id]);
+      if (existingRows.length > 0) {
+        return res.status(400).json({ message: 'Barcode sudah digunakan oleh barang lain' });
+      }
     }
 
     const [result] = await db.execute(
@@ -133,7 +137,7 @@ const updateBarang = async (req, res) => {
     res.status(200).json({ message: 'Barang berhasil diperbarui' });
   } catch (error) {
     console.error('Error updating barang:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
+    res.status(500).json({ message: 'Terjadi kesalahan pada server internal: ' + error.message });
   }
 };
 

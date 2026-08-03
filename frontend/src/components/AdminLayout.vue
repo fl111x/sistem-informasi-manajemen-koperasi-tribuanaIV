@@ -57,12 +57,7 @@ const prosesLogout = async () => {
             Kelola Anggota
           </router-link>
 
-          <router-link v-if="user?.nama_role === 'Administrator' || user?.id_role === 1" to="/kelola-supplier" 
-            class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"
-            :class="route.path === '/kelola-supplier' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 font-medium hover:bg-slate-100'">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" /></svg>
-            Kelola Supplier
-          </router-link>
+
 
           <router-link v-if="user?.nama_role === 'Administrator' || user?.nama_role === 'Gudang' || user?.id_role === 1" to="/pembelian" 
             class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"

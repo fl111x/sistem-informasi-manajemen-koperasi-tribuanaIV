@@ -12,17 +12,7 @@ export const useAuthStore = defineStore('auth', {
   },
   actions: {
     async login(username, password) {
-      // --- DUMMY LOGIN (Bypass DB untuk Testing) ---
-      if (username === 'admin' && password === 'admin') {
-        this.user = { id_pengguna: 1, username: 'admin', nama_pengguna: 'Admin Dummy', id_role: 1, nama_role: 'Administrator' };
-        localStorage.setItem('user', JSON.stringify(this.user));
-        return { message: 'Login Dummy Berhasil', user: this.user };
-      } else if (username === 'kasir' && password === 'kasir') {
-        this.user = { id_pengguna: 2, username: 'kasir', nama_pengguna: 'Kasir Dummy', id_role: 2, nama_role: 'Kasir Swalayan' };
-        localStorage.setItem('user', JSON.stringify(this.user));
-        return { message: 'Login Dummy Berhasil', user: this.user };
-      }
-      // ---------------------------------------------
+
 
       try {
         const response = await api.post('/auth/login', { username, password })

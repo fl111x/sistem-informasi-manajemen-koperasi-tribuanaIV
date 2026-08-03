@@ -6,6 +6,7 @@ import api from '../services/api';
 // DATA DARI DATABASE
 // ==========================================
 const masterBarangGrosir = ref([]);
+const masterAnggota = ref([]);
 
 const fetchBarang = async () => {
   try {
@@ -16,8 +17,18 @@ const fetchBarang = async () => {
   }
 };
 
+const fetchAnggota = async () => {
+  try {
+    const res = await api.get('/anggota');
+    masterAnggota.value = res.data.data || res.data;
+  } catch (error) {
+    console.error('Error fetching anggota:', error);
+  }
+};
+
 onMounted(() => {
   fetchBarang();
+  fetchAnggota();
 });
 
 // State pencarian dan kasir
@@ -45,7 +56,21 @@ watch(keranjang, (newVal) => {
 
 // State Anggota & Pembayaran
 const nrpAnggota = ref('');
+const isAnggotaDropdownOpen = ref(false);
 const metodePembayaran = ref('Tunai'); // Tunai, EDC, QRIS
+
+const filteredAnggota = computed(() => {
+  if (!nrpAnggota.value || !Array.isArray(masterAnggota.value)) return [];
+  const search = String(nrpAnggota.value).toLowerCase();
+  return masterAnggota.value.filter(a => 
+    String(a.nrp || '').toLowerCase().includes(search) || String(a.nama || '').toLowerCase().includes(search)
+  ).slice(0, 5);
+});
+
+const selectAnggota = (anggota) => {
+  nrpAnggota.value = anggota.nrp;
+  isAnggotaDropdownOpen.value = false;
+};
 
 // State Otorisasi Void
 const isVoidModalOpen = ref(false);
@@ -353,11 +378,29 @@ const prosesTransaksi = async () => {
           <!-- Keanggotaan -->
           <div>
             <label class="text-xs font-semibold text-slate-800 block mb-1">NRP Anggota (Opsional)</label>
-            <input 
-              type="text" v-model="nrpAnggota"
-              class="w-full border border-slate-300 p-2 rounded text-sm text-slate-800 focus:outline-none focus:border-blue-600"
-              placeholder="Masukkan NRP / ID Anggota..."
-            >
+            <div class="relative">
+              <input 
+                type="text" v-model="nrpAnggota"
+                @focus="isAnggotaDropdownOpen = true"
+                @blur="setTimeout(() => isAnggotaDropdownOpen = false, 200)"
+                class="w-full border border-slate-300 p-2 rounded text-sm text-slate-800 focus:outline-none focus:border-blue-600"
+                placeholder="Masukkan NRP / ID Anggota..."
+              >
+              <!-- Dropdown Pencarian Anggota -->
+              <ul 
+                v-if="isAnggotaDropdownOpen && filteredAnggota.length > 0" 
+                class="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg overflow-hidden"
+              >
+                <li 
+                  v-for="anggota in filteredAnggota" :key="anggota.nrp"
+                  @click="selectAnggota(anggota)"
+                  class="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-slate-100 last:border-b-0"
+                >
+                  <div class="font-bold text-sm text-slate-800">{{ anggota.nrp }}</div>
+                  <div class="text-xs text-slate-500">{{ anggota.nama }}</div>
+                </li>
+              </ul>
+            </div>
           </div>
 
           <div class="flex justify-between items-center text-slate-600 text-sm border-b border-slate-100 pb-2 mt-2">
@@ -393,11 +436,12 @@ const prosesTransaksi = async () => {
           <!-- Metode Pembayaran -->
           <div class="mt-2">
             <label class="text-xs font-semibold text-slate-800 block mb-1">Metode Pembayaran</label>
-            <div class="grid grid-cols-3 gap-2">
-              <button @click="metodePembayaran = 'Tunai'" :class="metodePembayaran === 'Tunai' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'" class="py-1.5 text-xs font-bold rounded border border-slate-300">Tunai</button>
-              <button @click="metodePembayaran = 'EDC'" :class="metodePembayaran === 'EDC' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'" class="py-1.5 text-xs font-bold rounded border border-slate-300">EDC</button>
-              <button @click="metodePembayaran = 'QRIS'" :class="metodePembayaran === 'QRIS' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'" class="py-1.5 text-xs font-bold rounded border border-slate-300">QRIS</button>
-            </div>
+            <select v-model="metodePembayaran" class="w-full border border-slate-300 p-2 rounded text-sm text-slate-800 focus:outline-none focus:border-blue-600 font-semibold bg-white">
+              <option value="Tunai">Tunai (Cash)</option>
+              <option value="Debit / Kredit">Debit / Kredit</option>
+              <option value="QRIS">QRIS</option>
+              <option value="Transfer Bank">Transfer Bank</option>
+            </select>
           </div>
 
           <div v-if="metodePembayaran === 'Tunai'" class="flex flex-col gap-1 mt-2">

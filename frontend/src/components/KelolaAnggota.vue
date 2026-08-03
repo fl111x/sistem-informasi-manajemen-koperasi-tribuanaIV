@@ -15,8 +15,7 @@ const idSedangDiedit = ref(null);
 const formAnggota = ref({
   nrp: '',
   nama: '',
-  jenis: 'Militer',
-  pangkat_golongan: ''
+  pangkat: ''
 });
 
 // Notifikasi
@@ -40,14 +39,14 @@ const fetchAnggota = async () => {
     isLoading.value = true;
     errorMessage.value = '';
     const response = await api.get('/anggota');
-    daftarAnggota.value = response.data;
+    daftarAnggota.value = response.data.data || [];
   } catch (error) {
     console.error('Error fetching anggota:', error);
     // Silent fail if endpoint doesn't exist yet, just mock for now
     if (error.response?.status === 404) {
       daftarAnggota.value = [
-        { id_anggota: 1, nrp: '123456789', nama: 'Sertu Budi', jenis: 'Militer', pangkat_golongan: 'Sertu' },
-        { id_anggota: 2, nrp: '198701012010121001', nama: 'Agus Santoso', jenis: 'PNS', pangkat_golongan: 'III/b' }
+        { id_anggota: 1, nrp: '123456789', nama: 'Sertu Budi', pangkat: 'Sertu' },
+        { id_anggota: 2, nrp: '198701012010121001', nama: 'Agus Santoso', pangkat: 'III/b' }
       ];
     } else {
       errorMessage.value = 'Gagal memuat data anggota.';
@@ -73,7 +72,7 @@ const dataDitampilkan = computed(() => {
 const bukaModalTambah = () => {
   modalMode.value = 'tambah';
   idSedangDiedit.value = null;
-  formAnggota.value = { nrp: '', nama: '', jenis: 'Militer', pangkat_golongan: '' };
+  formAnggota.value = { nrp: '', nama: '', pangkat: '' };
   isModalOpen.value = true;
 };
 
@@ -127,7 +126,7 @@ const konfirmasiHapus = async () => {
     <header class="px-8 py-6 border-b border-slate-200 flex justify-between items-center flex-shrink-0">
       <div>
         <h1 class="text-2xl font-bold text-slate-800">Kelola Anggota</h1>
-        <p class="text-sm text-slate-500 mt-1">Data nominatif anggota koperasi (Militer, PNS, P3K).</p>
+        <p class="text-sm text-slate-500 mt-1">Data nominatif anggota koperasi.</p>
       </div>
       <button @click="bukaModalTambah" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
@@ -151,30 +150,24 @@ const konfirmasiHapus = async () => {
             <tr>
               <th class="px-5 py-4 w-1/4">NRP</th>
               <th class="px-5 py-4 w-1/3">Nama Lengkap</th>
-              <th class="px-5 py-4">Jenis</th>
-              <th class="px-5 py-4">Pangkat/Golongan</th>
+              <th class="px-5 py-4">Pangkat</th>
               <th class="px-5 py-4 w-24 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="isLoading">
-              <td colspan="5" class="px-5 py-12 text-center text-slate-400">Memuat data...</td>
+              <td colspan="4" class="px-5 py-12 text-center text-slate-400">Memuat data...</td>
             </tr>
             <tr v-else-if="errorMessage">
-              <td colspan="5" class="px-5 py-12 text-center text-red-500">{{ errorMessage }}</td>
+              <td colspan="4" class="px-5 py-12 text-center text-red-500">{{ errorMessage }}</td>
             </tr>
             <tr v-else-if="dataDitampilkan.length === 0">
-              <td colspan="5" class="px-5 py-12 text-center text-slate-400">Data anggota tidak ditemukan.</td>
+              <td colspan="4" class="px-5 py-12 text-center text-slate-400">Data anggota tidak ditemukan.</td>
             </tr>
             <tr v-else v-for="item in dataDitampilkan" :key="item.id_anggota" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
               <td class="px-5 py-3 font-medium text-slate-800">{{ item.nrp }}</td>
               <td class="px-5 py-3 text-slate-800">{{ item.nama }}</td>
-              <td class="px-5 py-3 text-slate-700">
-                <span :class="item.jenis === 'Militer' ? 'bg-green-100 text-green-700' : (item.jenis === 'PNS' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700')" class="px-2 py-1 rounded text-xs font-bold">
-                  {{ item.jenis }}
-                </span>
-              </td>
-              <td class="px-5 py-3 text-slate-700">{{ item.pangkat_golongan }}</td>
+              <td class="px-5 py-3 text-slate-700">{{ item.pangkat }}</td>
               <td class="px-5 py-3 text-center">
                 <div class="flex justify-center gap-2">
                   <button @click="bukaModalEdit(item)" class="text-slate-400 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 p-1.5 rounded transition-colors" title="Edit">
@@ -209,16 +202,8 @@ const konfirmasiHapus = async () => {
             <input type="text" v-model="formAnggota.nama" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600">
           </div>
           <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-1">Jenis Pegawai</label>
-            <select v-model="formAnggota.jenis" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600">
-              <option value="Militer">Militer</option>
-              <option value="PNS">PNS</option>
-              <option value="P3K">P3K</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-1">Pangkat / Golongan</label>
-            <input type="text" v-model="formAnggota.pangkat_golongan" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600">
+            <label class="block text-sm font-semibold text-slate-700 mb-1">Pangkat</label>
+            <input type="text" v-model="formAnggota.pangkat" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600">
           </div>
         </div>
         <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">

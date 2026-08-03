@@ -1,38 +1,39 @@
-backlog 
+# Backlog & Project Status
 
-20-07-2026
-* ~~fungsi login (login, lupa password, autentikasi login)~~
-* ~~fungsi kelola pengguna~~
-* ~~fungsi master barang (CRUD barang)~~
-* ~~pembuatan DB~~
-* ~~fungsi transaksi~~
-* ~~fungsi kelola role~~
-* ~~fungsi logout~~
+## Log Perubahan Terbaru (Git Commits)
+- **812f727 (2026-07-29)** - feat: backend procedural refactoring, anggota CRUD, SHU integration, and frontend API fixes
+- **0e23fd8 (2026-07-29)** - feat: Implementasi Frontend Fase 4 (Gudang & Pembelian) dan Fase 5 (Akuntansi & Laporan)
+- **8e99c92 (2026-07-29)** - feat: Implementasi Frontend Fase 1 hingga Fase 3
+- **d20dec6 (2026-07-28)** - feat: Refactor backend & implement Pembelian and Supplier modules
+- **ce340bd (2026-07-28)** - menambah requirement yang didapatkan
+- **7170c83 (2026-07-24)** - update transkrip
+- **90e1844 (2026-07-21)** - integrasi : menyelesaikan integrasi dan menambahkan beberapa data dummy untuk testing
 
-** 21-07-2026
-* revisi fungsi transaksi
-* perubahan struktur kode menjadi mvc
+---
 
+## Status Pekerjaan (Fungsi dan Fitur)
 
-* fungsi laporan dan generate laporan
+### ✅ Sudah Dikerjakan (Selesai)
+- [x] Fungsi login (autentikasi JWT, cookie-based)
+- [x] Tampilan halaman Login
+- [x] Fungsi kelola pengguna (CRUD)
+- [x] Tampilan kelola user & role (Sisi Admin)
+- [x] Fungsi master barang (CRUD Barang)
+- [x] Tampilan kelola barang (Admin & Koperasi)
+- [x] Pembuatan DB dan dummy seed
+- [x] Fungsi transaksi awal (Kasir Swalayan & Grosir)
+- [x] Tampilan dashboard koperasi
+- [x] Fungsi kelola role
+- [x] Fungsi logout
+- [x] Integrasi halaman Frontend dan API Backend
+- [x] Backend procedural refactoring menjadi MVC
+- [x] CRUD Anggota
+- [x] Modul Pembelian Gudang (Tanpa Tabel Supplier Terpisah)
 
-=============================================================
+### ⏳ Akan Dikerjakan / Sedang Berjalan
+- [ ] Revisi fungsi transaksi lanjutan (jika masih diperlukan bugfix)
+- [ ] Fitur Laporan Lengkap (Laporan Akuntansi, Generate PDF/Excel dari transaksi dan laba)
+- [ ] Validasi dan testing API dengan kondisi real database
 
-** 20-07-2026
-* ~~tampilan login~~
-* ~~tampilan kasir swalayan~~
-* ~~tampilan dashboard koperasi~~
-* ~~tampilan kasir grosir~~
-
-** 21-07-2026
-* ~~tampilan kelola barang sisi admin koperasi dan admin sistem~~
-* ~~tampilan kelola user~~
-* ~~tampilan tambah role~~
-
-
-* tampilan laporan dan generate laporan
-
-
-
-
-
+## Catatan Tambahan Terkini
+- **Penghapusan Modul Kelola Supplier**: Sesuai kesepakatan, modul Kelola Supplier beserta *route*, UI, dan skema database-nya telah dihapus untuk menyederhanakan proses. Pembelian (restok barang) sekarang hanya menerima input teks bebas berupa nama penyuplai tanpa perlu mendaftarkannya terlebih dahulu.

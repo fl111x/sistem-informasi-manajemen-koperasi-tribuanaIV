@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue';
 import api from '../services/api';
 
 const daftarPO = ref([]);
-const daftarSupplier = ref([]);
+
 const daftarBarang = ref([]);
 const isLoading = ref(false);
 const errorMessage = ref('');
@@ -14,7 +14,7 @@ const activeTab = ref('Riwayat PO'); // 'Riwayat PO', 'Buat PO Baru'
 // State Form PO
 const formPO = ref({
   kategori: 'Swalayan',
-  id_supplier: '',
+  nama_supplier: '',
   items: []
 });
 const barangPilihan = ref('');
@@ -37,18 +37,119 @@ const tutupNotif = () => isNotifModalOpen.value = false;
 const isDetailModalOpen = ref(false);
 const poDetail = ref(null);
 
+const bukaDetailPO = async (po) => {
+  try {
+    const res = await api.get(`/pembelian/${po.id_pembelian}`);
+    poDetail.value = res.data;
+    isDetailModalOpen.value = true;
+  } catch (error) {
+    tampilkanNotif('Gagal', 'Gagal mengambil detail PO');
+  }
+};
+
+const itemBelumLengkap = computed(() => {
+  if (!poDetail.value || !poDetail.value.items) return [];
+  return poDetail.value.items.filter(i => {
+    if (!i.id_barang) return false;
+    if (!i.barcode || i.harga_swalayan === 0 || i.harga_swalayan === null) return true;
+    
+    // Validasi satuan berdasarkan kategori PO
+    if (poDetail.value.kategori === 'Swalayan' && !i.satuan_swalayan) return true;
+    if (poDetail.value.kategori === 'Grosir' && !i.satuan_grosir) return true;
+    
+    return false;
+  });
+});
+
+const isLengkapiDataModalOpen = ref(false);
+const formLengkapiData = ref({
+  id_barang: null,
+  nama_barang: '',
+  barcode: '',
+  harga_swalayan: 0,
+  harga_grosir: 0,
+  satuan_swalayan: '',
+  satuan_grosir: ''
+});
+
+const isSubmittingLengkapi = ref(false);
+const bukaLengkapiData = (item) => {
+  formLengkapiData.value = {
+    id_barang: item.id_barang,
+    nama_barang: item.snapshot_nama_barang || 'Barang Baru',
+    barcode: item.barcode || '',
+    harga_swalayan: item.harga_swalayan || 0,
+    harga_grosir: item.harga_grosir || 0,
+    satuan_swalayan: item.satuan_swalayan || '',
+    satuan_grosir: item.satuan_grosir || ''
+  };
+  isLengkapiDataModalOpen.value = true;
+};
+
+const simpanLengkapiData = async () => {
+  if (poDetail.value?.kategori === 'Swalayan' && !formLengkapiData.value.satuan_swalayan) {
+    tampilkanNotif('Gagal', 'Satuan Swalayan harus diisi karena ini PO Swalayan!');
+    return;
+  }
+  if (poDetail.value?.kategori === 'Grosir' && !formLengkapiData.value.satuan_grosir) {
+    tampilkanNotif('Gagal', 'Satuan Grosir harus diisi karena ini PO Grosir!');
+    return;
+  }
+
+  try {
+    isSubmittingLengkapi.value = true;
+    await api.put(`/barang/${formLengkapiData.value.id_barang}`, formLengkapiData.value);
+    tampilkanNotif('Berhasil', 'Data barang berhasil dilengkapi.');
+    isLengkapiDataModalOpen.value = false;
+    await bukaDetailPO(poDetail.value); // refresh detail
+  } catch (error) {
+    tampilkanNotif('Gagal', error.response?.data?.message || 'Gagal menyimpan data.');
+  } finally {
+    isSubmittingLengkapi.value = false;
+  }
+};
+
+const isBarangBaruModalOpen = ref(false);
+const formBarangBaru = ref({
+  nama_barang: '',
+  harga_beli: 0
+});
+
+const isSubmittingBarang = ref(false);
+const simpanBarangBaru = async () => {
+  try {
+    isSubmittingBarang.value = true;
+    const response = await api.post('/barang', formBarangBaru.value);
+    tampilkanNotif('Berhasil', 'Barang baru berhasil ditambahkan ke Master Data.');
+    
+    // Refresh list barang
+    const resBarang = await api.get('/barang').catch(() => ({ data: [] }));
+    daftarBarang.value = resBarang.data;
+    
+    // Auto-select newly added item (assuming backend returns id_barang)
+    if (response.data.id_barang) {
+      barangPilihan.value = response.data.id_barang;
+      hargaSatuan.value = formBarangBaru.value.harga_beli;
+    }
+    
+    isBarangBaruModalOpen.value = false;
+  } catch (error) {
+    tampilkanNotif('Gagal', error.response?.data?.message || 'Gagal menambahkan barang baru.');
+  } finally {
+    isSubmittingBarang.value = false;
+  }
+};
+
 const fetchData = async () => {
   try {
     isLoading.value = true;
     errorMessage.value = '';
-    const [resPO, resSupplier, resBarang] = await Promise.all([
+    const [resPO, resBarang] = await Promise.all([
       api.get('/pembelian').catch(() => ({ data: [] })),
-      api.get('/supplier').catch(() => ({ data: [] })),
       api.get('/barang').catch(() => ({ data: [] }))
     ]);
     
     daftarPO.value = resPO.data;
-    daftarSupplier.value = resSupplier.data;
     daftarBarang.value = resBarang.data;
   } catch (error) {
     console.error('Error fetching data:', error);
@@ -103,8 +204,8 @@ const totalBOPBaru = computed(() => {
 // Handle Simpan PO Baru
 const isSubmitting = ref(false);
 const simpanPOBaru = async () => {
-  if (!formPO.value.id_supplier || formPO.value.items.length === 0) {
-    tampilkanNotif('Peringatan', 'Pastikan Supplier dan minimal 1 Barang telah dipilih.');
+  if (!formPO.value.nama_supplier || formPO.value.items.length === 0) {
+    tampilkanNotif('Peringatan', 'Pastikan Nama Supplier dan minimal 1 Barang telah diisi.');
     return;
   }
 
@@ -114,7 +215,7 @@ const simpanPOBaru = async () => {
     tampilkanNotif('Berhasil', 'Purchase Order berhasil dibuat.');
     
     // Reset Form & pindah tab
-    formPO.value = { kategori: 'Swalayan', id_supplier: '', items: [] };
+    formPO.value = { kategori: 'Swalayan', nama_supplier: '', items: [] };
     activeTab.value = 'Riwayat PO';
     await fetchData();
   } catch (error) {
@@ -228,7 +329,7 @@ const formatDate = (dateString) => {
                     </span>
                   </td>
                   <td class="px-5 py-3 text-center">
-                    <button @click="poDetail = po; isDetailModalOpen = true" class="text-sm font-bold text-blue-600 hover:text-blue-800 hover:underline">
+                    <button @click="bukaDetailPO(po)" class="text-sm font-bold text-blue-600 hover:text-blue-800 hover:underline">
                       Aksi / Detail
                     </button>
                   </td>
@@ -252,11 +353,8 @@ const formatDate = (dateString) => {
             <!-- Informasi Umum -->
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-1">Pilih Supplier</label>
-                <select v-model="formPO.id_supplier" class="w-full border border-slate-300 px-3 py-2.5 rounded-md focus:outline-none focus:border-blue-600 bg-white text-sm">
-                  <option disabled value="">-- Pilih Supplier --</option>
-                  <option v-for="s in daftarSupplier" :key="s.id_supplier" :value="s.id_supplier">{{ s.nama_supplier }}</option>
-                </select>
+                <label class="block text-sm font-semibold text-slate-700 mb-1">Nama Supplier</label>
+                <input type="text" v-model="formPO.nama_supplier" placeholder="Contoh: PT. ABC atau Toko XYZ" class="w-full border border-slate-300 px-3 py-2.5 rounded-md focus:outline-none focus:border-blue-600 bg-white text-sm" />
               </div>
               <div>
                 <label class="block text-sm font-semibold text-slate-700 mb-1">Kategori Tujuan</label>
@@ -274,7 +372,13 @@ const formatDate = (dateString) => {
               <h3 class="font-bold text-slate-800 mb-3 text-sm">Tambahkan Barang ke PO</h3>
               <div class="flex gap-3 items-end bg-slate-50 p-4 rounded-lg border border-slate-200">
                 <div class="flex-1">
-                  <label class="block text-xs font-semibold text-slate-600 mb-1">Pilih Barang</label>
+                  <div class="flex justify-between items-center mb-1">
+                    <label class="block text-xs font-semibold text-slate-600">Pilih Barang</label>
+                    <button @click="isBarangBaruModalOpen = true" class="text-xs text-blue-600 font-bold hover:underline flex items-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                      Barang Baru
+                    </button>
+                  </div>
                   <select v-model="barangPilihan" @change="hargaSatuan = (daftarBarang.find(b => b.id_barang === barangPilihan)?.harga_beli || 0)" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 bg-white text-sm">
                     <option disabled value="">-- Cari Barang --</option>
                     <option v-for="b in daftarBarang" :key="b.id_barang" :value="b.id_barang">{{ b.nama_barang }} (Stok Saat Ini: {{ formPO.kategori === 'Swalayan' ? b.stok_swalayan : b.stok_grosir }})</option>
@@ -341,7 +445,7 @@ const formatDate = (dateString) => {
             </button>
             <button 
               @click="simpanPOBaru" 
-              :disabled="isSubmitting || formPO.items.length === 0 || !formPO.id_supplier"
+              :disabled="isSubmitting || formPO.items.length === 0 || !formPO.nama_supplier"
               class="px-6 py-2 rounded-md font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex gap-2 items-center"
             >
               <span v-if="isSubmitting">Menyimpan...</span>
@@ -376,6 +480,20 @@ const formatDate = (dateString) => {
           <div v-if="poDetail?.status === 'Menunggu' || poDetail?.status === 'Diterima'" class="mb-4 bg-yellow-50 border-l-4 border-yellow-400 p-3 text-sm text-yellow-800">
             <strong>Perhatian:</strong> PO ini belum dimutasi ke stok fisik. Klik tombol <b>"Mutasi ke Stok Fisik"</b> di bawah agar kuantitas barang otomatis bertambah di Master Barang.
           </div>
+          
+          <!-- Peringatan Barang Belum Lengkap -->
+          <div v-if="itemBelumLengkap.length > 0 && poDetail?.status !== 'Dimutasi' && poDetail?.status !== 'Batal'" class="mb-4 bg-red-50 border-l-4 border-red-500 p-3 text-sm text-red-800">
+            <strong>Penyelesaian Administrasi:</strong> Terdapat <b>{{ itemBelumLengkap.length }}</b> barang baru di dalam PO ini yang belum memiliki Barcode atau Harga Jual. Anda <b>tidak bisa melakukan mutasi</b> sebelum melengkapi data barang-barang tersebut!
+            
+            <div class="mt-3 flex flex-col gap-2">
+              <div v-for="item in itemBelumLengkap" :key="item.id_detail_pembelian" class="flex justify-between items-center bg-white p-2 rounded border border-red-200">
+                <span class="font-semibold">{{ item.snapshot_nama_barang }}</span>
+                <button @click="bukaLengkapiData(item)" class="bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1 rounded font-bold shadow-sm">
+                  Lengkapi Data
+                </button>
+              </div>
+            </div>
+          </div>
           <div v-if="poDetail?.status === 'Dimutasi'" class="mb-4 bg-green-50 border-l-4 border-green-500 p-3 text-sm text-green-800">
             PO ini telah diselesaikan dan stok barang telah <strong>otomatis bertambah</strong> pada gudang/master barang.
           </div>
@@ -393,13 +511,94 @@ const formatDate = (dateString) => {
             <button v-if="poDetail?.status === 'Menunggu'" @click="updateStatusPO(poDetail.id_pembelian, 'Diterima')" class="px-4 py-2 text-sm font-bold text-slate-700 bg-yellow-400 hover:bg-yellow-500 rounded-md shadow-sm">
               Tandai Diterima (Gudang)
             </button>
-            <button @click="updateStatusPO(poDetail.id_pembelian, 'Dimutasi')" class="px-4 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-md shadow-sm">
+            <button @click="updateStatusPO(poDetail.id_pembelian, 'Dimutasi')" :disabled="itemBelumLengkap.length > 0" class="px-4 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
               Mutasi ke Stok Fisik (Selesai)
             </button>
             <button @click="updateStatusPO(poDetail.id_pembelian, 'Batal')" class="px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-md">
               Batalkan PO
             </button>
           </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL LENGKAPI DATA BARANG -->
+    <div v-if="isLengkapiDataModalOpen" class="fixed inset-0 z-[55] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+      <div class="bg-white w-full max-w-md rounded-xl shadow-xl flex flex-col overflow-hidden max-h-[90vh]">
+        <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center flex-shrink-0">
+          <h3 class="font-bold text-lg text-slate-800">Lengkapi Administrasi Barang</h3>
+          <button @click="isLengkapiDataModalOpen = false" class="text-slate-400 hover:text-slate-600"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+        </div>
+        
+        <div class="p-6 overflow-y-auto flex flex-col gap-4">
+          <div class="bg-blue-50 p-3 rounded text-sm text-blue-800 mb-2">
+            Silakan lengkapi <b>Barcode</b>, <b>Harga Swalayan</b>, dan <b>Satuan (sesuai PO)</b> untuk <strong>{{ formLengkapiData.nama_barang }}</strong> sebelum bisa dimutasi.
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1">Nama Barang <span class="text-red-500">*</span></label>
+            <input type="text" v-model="formLengkapiData.nama_barang" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1">Barcode / Kode <span class="text-red-500">*</span></label>
+            <input type="text" v-model="formLengkapiData.barcode" placeholder="Scan atau ketik barcode" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-1">Harga Swalayan <span class="text-red-500">*</span></label>
+              <input type="number" v-model="formLengkapiData.harga_swalayan" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-1">Harga Grosir (Opsional)</label>
+              <input type="number" v-model="formLengkapiData.harga_grosir" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-1">Satuan Swalayan <span v-if="poDetail?.kategori === 'Swalayan'" class="text-red-500">*</span></label>
+              <input type="text" v-model="formLengkapiData.satuan_swalayan" placeholder="Contoh: Pcs, Botol" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-1">Satuan Grosir <span v-if="poDetail?.kategori === 'Grosir'" class="text-red-500">*</span></label>
+              <input type="text" v-model="formLengkapiData.satuan_grosir" placeholder="Contoh: Dus, Karton" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
+            </div>
+          </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 flex-shrink-0">
+          <button @click="isLengkapiDataModalOpen = false" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-md">Batal</button>
+          <button @click="simpanLengkapiData" :disabled="isSubmittingLengkapi" class="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm disabled:opacity-50 flex gap-2 items-center">
+            <span v-if="isSubmittingLengkapi">Menyimpan...</span>
+            <span v-else>Simpan Kelengkapan</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL BARANG BARU CEPAT -->
+    <div v-if="isBarangBaruModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+      <div class="bg-white w-full max-w-md rounded-xl shadow-xl flex flex-col overflow-hidden max-h-[90vh]">
+        <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center flex-shrink-0">
+          <h3 class="font-bold text-lg text-slate-800">Tambah Barang Cepat</h3>
+          <button @click="isBarangBaruModalOpen = false" class="text-slate-400 hover:text-slate-600"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+        </div>
+        
+        <div class="p-6 overflow-y-auto flex flex-col gap-4">
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1">Nama Barang <span class="text-red-500">*</span></label>
+            <input type="text" v-model="formBarangBaru.nama_barang" placeholder="Masukkan nama barang" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1">Harga Beli</label>
+            <input type="number" v-model="formBarangBaru.harga_beli" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
+          </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 flex-shrink-0">
+          <button @click="isBarangBaruModalOpen = false" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-md">Batal</button>
+          <button @click="simpanBarangBaru" :disabled="isSubmittingBarang" class="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm disabled:opacity-50 flex gap-2 items-center">
+            <span v-if="isSubmittingBarang">Menyimpan...</span>
+            <span v-else>Simpan ke Master</span>
+          </button>
         </div>
       </div>
     </div>
