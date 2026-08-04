@@ -148,7 +148,8 @@ const tambahKeFaktur = (item) => {
       satuan: item.satuan_swalayan,
       qty: 1,
       harga: item.harga_swalayan || 0,
-      subtotal: item.harga_swalayan || 0
+      subtotal: item.harga_swalayan || 0,
+      stok: item.stok_swalayan || 0
     });
   }
   searchQuery.value = '';
@@ -306,6 +307,7 @@ const prosesTransaksi = async () => {
                 <div>
                   <span class="font-medium text-slate-800">{{ item.nama_barang }}</span>
                   <span class="text-xs text-slate-500 ml-2">({{ item.satuan_swalayan || '-' }})</span>
+                  <span class="text-xs font-bold text-blue-600 ml-2">Stok: {{ item.stok_swalayan || 0 }}</span>
                 </div>
                 <span class="text-sm font-bold text-slate-600">{{ formatRupiah(item.harga_swalayan) }}</span>
               </li>
@@ -320,7 +322,8 @@ const prosesTransaksi = async () => {
           <table class="w-full text-left text-sm text-slate-600">
             <thead class="bg-slate-100 text-slate-700 uppercase font-semibold text-xs sticky top-0 border-b border-slate-200">
               <tr>
-                <th class="px-4 py-2.5 w-1/2">Barang</th>
+                <th class="px-4 py-2.5 w-2/5">Barang</th>
+                <th class="px-2 py-2.5 w-1/6 text-center">Stok</th>
                 <th class="px-2 py-2.5 w-1/6 text-center">Qty</th>
                 <th class="px-4 py-2.5 w-1/6 text-right">Harga</th>
                 <th class="px-4 py-2.5 text-right">Subtotal</th>
@@ -333,6 +336,7 @@ const prosesTransaksi = async () => {
               </tr>
               <tr v-else class="border-b border-slate-100 hover:bg-slate-50 transition-colors" v-for="(item, index) in keranjang" :key="index">
                 <td class="px-4 py-2 font-medium text-slate-800">{{ item.nama }}</td>
+                <td class="px-2 py-2 text-center text-slate-500 font-semibold">{{ item.stok }}</td>
                 
                 <td class="px-2 py-2">
                   <div class="flex items-center justify-center">
