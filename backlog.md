@@ -1,6 +1,10 @@
 # Backlog & Project Status
 
 ## Log Perubahan Terbaru (Git Commits)
+- **0c7449b (2026-08-04)** - docs: Tambahkan dokumentasi struktur frontend
+- **05fa7e2 (2026-08-04)** - feat: Menambahkan kolom stok pada tabel keranjang dan dropdown pencarian kasir
+- **353df2b (2026-08-04)** - chore: update database exports
+- **cc44e94 (2026-08-04)** - feat: optimasi skema db, hapus modul kelola supplier, update form mutasi barang baru, dan perbaikan UI kasir
 - **812f727 (2026-07-29)** - feat: backend procedural refactoring, anggota CRUD, SHU integration, and frontend API fixes
 - **0e23fd8 (2026-07-29)** - feat: Implementasi Frontend Fase 4 (Gudang & Pembelian) dan Fase 5 (Akuntansi & Laporan)
 - **8e99c92 (2026-07-29)** - feat: Implementasi Frontend Fase 1 hingga Fase 3
