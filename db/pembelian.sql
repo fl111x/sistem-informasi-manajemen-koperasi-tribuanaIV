@@ -10,6 +10,9 @@ CREATE TABLE `pembelian` (
   `kategori` enum('Swalayan','Grosir') NOT NULL,
   `status` enum('Menunggu','Diterima','Dimutasi','Ditunda') DEFAULT 'Menunggu',
   `waktu_pembelian` datetime DEFAULT CURRENT_TIMESTAMP,
+  `metode_pembayaran` enum('Cash','Tempo') DEFAULT 'Cash',
+  `jatuh_tempo` date DEFAULT NULL,
+  `status_pembayaran` enum('Lunas','Belum Lunas') DEFAULT 'Lunas',
   `id_supplier` int NOT NULL,
   `id_pengguna` int NOT NULL,
   `total_biaya` decimal(15,2) DEFAULT '0.00',
@@ -21,11 +24,11 @@ CREATE TABLE `pembelian` (
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table pembelian
-INSERT INTO `pembelian` VALUES (1, 'Swalayan', 'Dimutasi', '2026-08-03 02:29:07', 4, 1, '300000.00');
-INSERT INTO `pembelian` VALUES (2, 'Swalayan', 'Dimutasi', '2026-08-03 02:54:02', 5, 1, '60000.00');
-INSERT INTO `pembelian` VALUES (3, 'Swalayan', 'Dimutasi', '2026-08-03 02:55:04', 6, 1, '500000.00');
-INSERT INTO `pembelian` VALUES (4, 'Grosir', 'Dimutasi', '2026-08-03 03:10:30', 7, 1, '140000.00');
-INSERT INTO `pembelian` VALUES (5, 'Grosir', 'Dimutasi', '2026-08-03 03:12:37', 8, 1, '400000.00');
-INSERT INTO `pembelian` VALUES (6, 'Grosir', 'Dimutasi', '2026-08-04 01:02:12', 9, 1, '125000.00');
+INSERT INTO `pembelian` VALUES (1, 'Swalayan', 'Dimutasi', '2026-08-03 02:29:07', 'Cash', NULL, 'Lunas', 4, 1, '300000.00');
+INSERT INTO `pembelian` VALUES (2, 'Swalayan', 'Dimutasi', '2026-08-03 02:54:02', 'Cash', NULL, 'Lunas', 5, 1, '60000.00');
+INSERT INTO `pembelian` VALUES (3, 'Swalayan', 'Dimutasi', '2026-08-03 02:55:04', 'Cash', NULL, 'Lunas', 6, 1, '500000.00');
+INSERT INTO `pembelian` VALUES (4, 'Grosir', 'Dimutasi', '2026-08-03 03:10:30', 'Cash', NULL, 'Lunas', 7, 1, '140000.00');
+INSERT INTO `pembelian` VALUES (5, 'Grosir', 'Dimutasi', '2026-08-03 03:12:37', 'Cash', NULL, 'Lunas', 8, 1, '400000.00');
+INSERT INTO `pembelian` VALUES (6, 'Grosir', 'Dimutasi', '2026-08-04 01:02:12', 'Cash', NULL, 'Lunas', 9, 1, '125000.00');
 
 SET FOREIGN_KEY_CHECKS=1;

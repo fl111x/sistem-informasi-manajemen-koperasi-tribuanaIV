@@ -27,6 +27,7 @@ CREATE TABLE `barang` (
   `nama_barang` varchar(150) NOT NULL,
   `golongan` varchar(100) DEFAULT NULL,
   `harga_beli` decimal(15,2) DEFAULT '0.00',
+  `stok_gudang` int DEFAULT '0',
   `stok_swalayan` int DEFAULT '0',
   `stok_grosir` int DEFAULT '0',
   `harga_swalayan` decimal(15,2) DEFAULT '0.00',
@@ -34,6 +35,7 @@ CREATE TABLE `barang` (
   `satuan_swalayan` varchar(20) DEFAULT NULL,
   `satuan_grosir` varchar(20) DEFAULT NULL,
   `stok_minimal` int DEFAULT '10',
+  `is_konsinyasi` tinyint(1) DEFAULT '0',
   `is_active` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`id_barang`),
   UNIQUE KEY `barcode` (`barcode`),
@@ -41,25 +43,25 @@ CREATE TABLE `barang` (
 ) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table barang
-INSERT INTO `barang` VALUES (2, '899845101', 'Beras Maknyus 5kg', 'Sembako', '60000.00', 41, 25, '65000.00', '63000.00', 'Pcs', 'Dus', 10, 1);
-INSERT INTO `barang` VALUES (3, '899413170', 'Minyak Goreng Bimoli 2L', 'Sembako', '30000.00', 46, 33, '34000.00', '32000.00', 'Pcs', 'Dus', 10, 1);
-INSERT INTO `barang` VALUES (4, '899391528', 'Gula Pasir Gulaku 1kg', 'Sembako', '14000.00', 11, 19, '16000.00', '15000.00', 'Pcs', 'Dus', 10, 1);
-INSERT INTO `barang` VALUES (5, '899615197', 'Susu Bear Brand 189ml', 'Minuman', '9000.00', 52, 12, '10500.00', '10000.00', 'Pcs', 'Dus', 10, 1);
-INSERT INTO `barang` VALUES (6, '899103994', 'Sabun Mandi Lifebuoy 110g', 'Perawatan Diri', '3500.00', 14, 8, '4500.00', '4000.00', 'Pcs', 'Dus', 10, 1);
-INSERT INTO `barang` VALUES (7, '899229720', 'Shampoo Pantene 170ml', 'Perawatan Diri', '18000.00', 43, 7, '22000.00', '20000.00', 'Pcs', 'Dus', 10, 1);
-INSERT INTO `barang` VALUES (8, '899605132', 'Teh Pucuk Harum 350ml', 'Minuman', '3000.00', 31, 33, '4000.00', '3500.00', 'Pcs', 'Dus', 10, 1);
-INSERT INTO `barang` VALUES (9, '899867992', 'Kopi Kapal Api Mix 25g', 'Minuman', '1200.00', 56, 8, '1500.00', '1300.00', 'Pcs', 'Dus', 10, 1);
-INSERT INTO `barang` VALUES (10, '899005774', 'Telur Ayam Kampung 1kg', 'Sembako', '25000.00', 51, 11, '28000.00', '26500.00', 'Pcs', 'Dus', 10, 1);
-INSERT INTO `barang` VALUES (11, '899384583', 'Rinso Anti Noda 770g', 'Kebutuhan Rumah', '20000.00', 59, 27, '24000.00', '22000.00', 'Pcs', 'Dus', 10, 1);
-INSERT INTO `barang` VALUES (12, '899237666', 'Pepsodent White 190g', 'Perawatan Diri', '9500.00', 41, 22, '12000.00', '11000.00', 'Pcs', 'Dus', 10, 1);
-INSERT INTO `barang` VALUES (13, '899923590', 'Mie Sedap Kuah Soto', 'Sembako', '2400.00', 53, 19, '3000.00', '2700.00', 'Pcs', 'Dus', 10, 1);
-INSERT INTO `barang` VALUES (14, '899726149', 'Aqua Botol 600ml', 'Minuman', '2500.00', 54, 6, '3500.00', '3000.00', 'Pcs', 'Dus', 10, 1);
-INSERT INTO `barang` VALUES (15, '899289270', 'Taro Snack Net 65g', 'Makanan Ringan', '4500.00', 50, 20, '6000.00', '5500.00', 'Pcs', 'Dus', 10, 1);
-INSERT INTO `barang` VALUES (16, '123', 'Mie Gaga', NULL, '2000.00', 180, 0, '3000.00', '0.00', 'PCS', NULL, 10, 1);
-INSERT INTO `barang` VALUES (17, '12345', 'Rokok Djarum', NULL, '10000.00', 47, 0, '12000.00', '0.00', 'Kotak', NULL, 10, 1);
-INSERT INTO `barang` VALUES (18, '56789', 'Le Mineral', NULL, '14000.00', 0, 10, '0.00', '16000.00', NULL, 'DUS', 10, 1);
-INSERT INTO `barang` VALUES (19, '10001', 'Depurasa', NULL, '20000.00', 0, 20, '0.00', '25000.00', NULL, 'DUS', 10, 1);
-INSERT INTO `barang` VALUES (20, '123456789', 'Garam Rukyah', NULL, '125000.00', 110, 13, '15000.00', '150000.00', 'pcs', 'dus', 10, 1);
+INSERT INTO `barang` VALUES (2, '899845101', 'Beras Maknyus 5kg', 'Sembako', '60000.00', 0, 41, 25, '65000.00', '63000.00', 'Pcs', 'Dus', 10, 0, 1);
+INSERT INTO `barang` VALUES (3, '899413170', 'Minyak Goreng Bimoli 2L', 'Sembako', '30000.00', 0, 46, 33, '34000.00', '32000.00', 'Pcs', 'Dus', 10, 0, 1);
+INSERT INTO `barang` VALUES (4, '899391528', 'Gula Pasir Gulaku 1kg', 'Sembako', '14000.00', 0, 11, 19, '16000.00', '15000.00', 'Pcs', 'Dus', 10, 0, 1);
+INSERT INTO `barang` VALUES (5, '899615197', 'Susu Bear Brand 189ml', 'Minuman', '9000.00', 0, 52, 12, '10500.00', '10000.00', 'Pcs', 'Dus', 10, 0, 1);
+INSERT INTO `barang` VALUES (6, '899103994', 'Sabun Mandi Lifebuoy 110g', 'Perawatan Diri', '3500.00', 0, 14, 8, '4500.00', '4000.00', 'Pcs', 'Dus', 10, 0, 1);
+INSERT INTO `barang` VALUES (7, '899229720', 'Shampoo Pantene 170ml', 'Perawatan Diri', '18000.00', 0, 43, 7, '22000.00', '20000.00', 'Pcs', 'Dus', 10, 0, 1);
+INSERT INTO `barang` VALUES (8, '899605132', 'Teh Pucuk Harum 350ml', 'Minuman', '3000.00', 0, 31, 33, '4000.00', '3500.00', 'Pcs', 'Dus', 10, 0, 1);
+INSERT INTO `barang` VALUES (9, '899867992', 'Kopi Kapal Api Mix 25g', 'Minuman', '1200.00', 0, 56, 8, '1500.00', '1300.00', 'Pcs', 'Dus', 10, 0, 1);
+INSERT INTO `barang` VALUES (10, '899005774', 'Telur Ayam Kampung 1kg', 'Sembako', '25000.00', 0, 51, 11, '28000.00', '26500.00', 'Pcs', 'Dus', 10, 0, 1);
+INSERT INTO `barang` VALUES (11, '899384583', 'Rinso Anti Noda 770g', 'Kebutuhan Rumah', '20000.00', 0, 59, 27, '24000.00', '22000.00', 'Pcs', 'Dus', 10, 0, 1);
+INSERT INTO `barang` VALUES (12, '899237666', 'Pepsodent White 190g', 'Perawatan Diri', '9500.00', 0, 41, 22, '12000.00', '11000.00', 'Pcs', 'Dus', 10, 0, 1);
+INSERT INTO `barang` VALUES (13, '899923590', 'Mie Sedap Kuah Soto', 'Sembako', '2400.00', 0, 53, 19, '3000.00', '2700.00', 'Pcs', 'Dus', 10, 0, 1);
+INSERT INTO `barang` VALUES (14, '899726149', 'Aqua Botol 600ml', 'Minuman', '2500.00', 0, 54, 6, '3500.00', '3000.00', 'Pcs', 'Dus', 10, 0, 1);
+INSERT INTO `barang` VALUES (15, '899289270', 'Taro Snack Net 65g', 'Makanan Ringan', '4500.00', 0, 50, 20, '6000.00', '5500.00', 'Pcs', 'Dus', 10, 0, 1);
+INSERT INTO `barang` VALUES (16, '123', 'Mie Gaga', NULL, '2000.00', 0, 180, 0, '3000.00', '0.00', 'PCS', NULL, 10, 0, 1);
+INSERT INTO `barang` VALUES (17, '12345', 'Rokok Djarum', NULL, '10000.00', 0, 47, 0, '12000.00', '0.00', 'Kotak', NULL, 10, 0, 1);
+INSERT INTO `barang` VALUES (18, '56789', 'Le Mineral', NULL, '14000.00', 0, 0, 10, '0.00', '16000.00', NULL, 'DUS', 10, 0, 1);
+INSERT INTO `barang` VALUES (19, '10001', 'Depurasa', NULL, '20000.00', 0, 0, 20, '0.00', '25000.00', NULL, 'DUS', 10, 0, 1);
+INSERT INTO `barang` VALUES (20, '123456789', 'Garam Rukyah', NULL, '125000.00', 0, 110, 13, '15000.00', '150000.00', 'pcs', 'dus', 10, 0, 1);
 
 -- Table structure for detail_pembelian
 DROP TABLE IF EXISTS `detail_pembelian`;
@@ -165,6 +167,9 @@ CREATE TABLE `pembelian` (
   `kategori` enum('Swalayan','Grosir') NOT NULL,
   `status` enum('Menunggu','Diterima','Dimutasi','Ditunda') DEFAULT 'Menunggu',
   `waktu_pembelian` datetime DEFAULT CURRENT_TIMESTAMP,
+  `metode_pembayaran` enum('Cash','Tempo') DEFAULT 'Cash',
+  `jatuh_tempo` date DEFAULT NULL,
+  `status_pembayaran` enum('Lunas','Belum Lunas') DEFAULT 'Lunas',
   `id_supplier` int NOT NULL,
   `id_pengguna` int NOT NULL,
   `total_biaya` decimal(15,2) DEFAULT '0.00',
@@ -176,12 +181,12 @@ CREATE TABLE `pembelian` (
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table pembelian
-INSERT INTO `pembelian` VALUES (1, 'Swalayan', 'Dimutasi', '2026-08-03 02:29:07', 4, 1, '300000.00');
-INSERT INTO `pembelian` VALUES (2, 'Swalayan', 'Dimutasi', '2026-08-03 02:54:02', 5, 1, '60000.00');
-INSERT INTO `pembelian` VALUES (3, 'Swalayan', 'Dimutasi', '2026-08-03 02:55:04', 6, 1, '500000.00');
-INSERT INTO `pembelian` VALUES (4, 'Grosir', 'Dimutasi', '2026-08-03 03:10:30', 7, 1, '140000.00');
-INSERT INTO `pembelian` VALUES (5, 'Grosir', 'Dimutasi', '2026-08-03 03:12:37', 8, 1, '400000.00');
-INSERT INTO `pembelian` VALUES (6, 'Grosir', 'Dimutasi', '2026-08-04 01:02:12', 9, 1, '125000.00');
+INSERT INTO `pembelian` VALUES (1, 'Swalayan', 'Dimutasi', '2026-08-03 02:29:07', 'Cash', NULL, 'Lunas', 4, 1, '300000.00');
+INSERT INTO `pembelian` VALUES (2, 'Swalayan', 'Dimutasi', '2026-08-03 02:54:02', 'Cash', NULL, 'Lunas', 5, 1, '60000.00');
+INSERT INTO `pembelian` VALUES (3, 'Swalayan', 'Dimutasi', '2026-08-03 02:55:04', 'Cash', NULL, 'Lunas', 6, 1, '500000.00');
+INSERT INTO `pembelian` VALUES (4, 'Grosir', 'Dimutasi', '2026-08-03 03:10:30', 'Cash', NULL, 'Lunas', 7, 1, '140000.00');
+INSERT INTO `pembelian` VALUES (5, 'Grosir', 'Dimutasi', '2026-08-03 03:12:37', 'Cash', NULL, 'Lunas', 8, 1, '400000.00');
+INSERT INTO `pembelian` VALUES (6, 'Grosir', 'Dimutasi', '2026-08-04 01:02:12', 'Cash', NULL, 'Lunas', 9, 1, '125000.00');
 
 -- Table structure for pengguna
 DROP TABLE IF EXISTS `pengguna`;

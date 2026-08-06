@@ -9,5 +9,6 @@ router.use(verifyToken);
 router.post('/', transaksiController.createTransaksi);
 router.get('/', transaksiController.getTransaksi);
 router.get('/:id', transaksiController.getTransaksiById);
+router.post('/:id/void', transaksiController.voidTransaksi);
 
 module.exports = router;

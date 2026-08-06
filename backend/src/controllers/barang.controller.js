@@ -43,7 +43,9 @@ const createBarang = async (req, res) => {
       satuan_swalayan, 
       stok_grosir, 
       satuan_grosir,
-      stok_minimal
+      stok_minimal,
+      stok_gudang,
+      is_konsinyasi
     } = req.body;
 
     // Basic validation
@@ -64,13 +66,13 @@ const createBarang = async (req, res) => {
         nama_barang, golongan, barcode, 
         harga_beli, harga_swalayan, harga_grosir, 
         stok_swalayan, stok_grosir, stok_minimal, 
-        satuan_swalayan, satuan_grosir
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        satuan_swalayan, satuan_grosir, stok_gudang, is_konsinyasi
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         nama_barang, golongan || null, barcode || null,
         harga_beli || 0, harga_swalayan || 0, harga_grosir || 0,
         stok_swalayan || 0, stok_grosir || 0, stok_minimal || 10,
-        satuan_swalayan || null, satuan_grosir || null
+        satuan_swalayan || null, satuan_grosir || null, stok_gudang || 0, is_konsinyasi || 0
       ]
     );
 
@@ -99,7 +101,9 @@ const updateBarang = async (req, res) => {
       satuan_swalayan, 
       stok_grosir, 
       satuan_grosir,
-      stok_minimal
+      stok_minimal,
+      stok_gudang,
+      is_konsinyasi
     } = req.body;
 
     if (!nama_barang) {
@@ -119,13 +123,13 @@ const updateBarang = async (req, res) => {
         nama_barang = ?, golongan = ?, barcode = ?, 
         harga_beli = ?, harga_swalayan = ?, harga_grosir = ?, 
         stok_swalayan = ?, stok_grosir = ?, stok_minimal = ?, 
-        satuan_swalayan = ?, satuan_grosir = ?
+        satuan_swalayan = ?, satuan_grosir = ?, stok_gudang = ?, is_konsinyasi = ?
        WHERE id_barang = ?`,
       [
         nama_barang, golongan || null, barcode || null,
         harga_beli || 0, harga_swalayan || 0, harga_grosir || 0,
         stok_swalayan || 0, stok_grosir || 0, stok_minimal || 10,
-        satuan_swalayan || null, satuan_grosir || null,
+        satuan_swalayan || null, satuan_grosir || null, stok_gudang || 0, is_konsinyasi || 0,
         id
       ]
     );
@@ -159,10 +163,50 @@ const deleteBarang = async (req, res) => {
   }
 };
 
+const mutasiBarang = async (req, res) => {
+  try {
+    const { id_barang, jumlah, tujuan } = req.body; // tujuan: 'Swalayan' or 'Grosir'
+    if (!id_barang || !jumlah || !tujuan) {
+      return res.status(400).json({ message: 'Data mutasi tidak lengkap' });
+    }
+
+    const [rows] = await db.execute('SELECT stok_gudang FROM Barang WHERE id_barang = ?', [id_barang]);
+    if (rows.length === 0) return res.status(404).json({ message: 'Barang tidak ditemukan' });
+
+    if (rows[0].stok_gudang < jumlah) {
+      return res.status(400).json({ message: 'Stok gudang tidak mencukupi untuk mutasi' });
+    }
+
+    const kolomTujuan = tujuan === 'Swalayan' ? 'stok_swalayan' : 'stok_grosir';
+    await db.execute(
+      `UPDATE Barang SET stok_gudang = stok_gudang - ?, ${kolomTujuan} = ${kolomTujuan} + ? WHERE id_barang = ?`,
+      [jumlah, jumlah, id_barang]
+    );
+
+    res.status(200).json({ message: 'Mutasi berhasil' });
+  } catch (error) {
+    console.error('Error mutasi barang:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan internal' });
+  }
+};
+
+const getBarangBelumDiset = async (req, res) => {
+  try {
+    // Barang yang ada di gudang tapi belum diset harga swalayan atau barcode
+    const [rows] = await db.execute('SELECT * FROM Barang WHERE stok_gudang > 0 AND (harga_swalayan = 0 OR barcode IS NULL)');
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error('Error fetching barang belum diset:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan internal' });
+  }
+};
+
 module.exports = {
   getAllBarang,
   getBarangById,
   createBarang,
   updateBarang,
-  deleteBarang
+  deleteBarang,
+  mutasiBarang,
+  getBarangBelumDiset
 };

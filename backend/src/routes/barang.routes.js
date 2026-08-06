@@ -6,8 +6,10 @@ const { verifyToken, verifyAdmin } = require('../middleware/auth.middleware');
 // Protect all barang management routes with admin verification (for now)
 router.use(verifyToken, verifyAdmin);
 
+router.get('/alert-belum-diset', barangController.getBarangBelumDiset);
 router.get('/', barangController.getAllBarang);
 router.get('/:id', barangController.getBarangById);
+router.post('/mutasi', barangController.mutasiBarang);
 router.post('/', barangController.createBarang);
 router.put('/:id', barangController.updateBarang);
 router.delete('/:id', barangController.deleteBarang);

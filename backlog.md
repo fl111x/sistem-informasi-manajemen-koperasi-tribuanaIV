@@ -1,6 +1,7 @@
 # Backlog & Project Status
 
 ## Log Perubahan Terbaru (Git Commits)
+- **[WIP] (2026-08-06)** - refactor: Update backend & DB untuk pemisahan stok gudang/toko, otorisasi void, jurnal akuntansi, dan hutang/piutang supplier
 - **0c7449b (2026-08-04)** - docs: Tambahkan dokumentasi struktur frontend
 - **05fa7e2 (2026-08-04)** - feat: Menambahkan kolom stok pada tabel keranjang dan dropdown pencarian kasir
 - **353df2b (2026-08-04)** - chore: update database exports
@@ -38,6 +39,12 @@
 - [ ] Revisi fungsi transaksi lanjutan (jika masih diperlukan bugfix)
 - [ ] Fitur Laporan Lengkap (Laporan Akuntansi, Generate PDF/Excel dari transaksi dan laba)
 - [ ] Validasi dan testing API dengan kondisi real database
+- [ ] (UI) Pembaruan Frontend: Fitur Otorisasi Void Kasir (Modal PIN/Password Supervisor)
+- [ ] (UI) Pembaruan Frontend: Halaman Mutasi Barang (Gudang Utama ke Toko)
+- [ ] (UI) Pembaruan Frontend: Notifikasi/Alert Dashboard untuk Barang Gudang yang Belum Diset Harga
+- [ ] (UI) Pembaruan Frontend: Pengembalian Dropdown Supplier dan Input Hutang/Tempo di Pembelian
+- [ ] (UI) Pembaruan Frontend: Sembunyikan Menu berdasarkan Role secara ketat
+- [ ] (Backend & DB) Pembaruan Skema Database dan Endpoint API untuk mendukung fitur-fitur di atas
 
 ## Catatan Tambahan Terkini
-- **Penghapusan Modul Kelola Supplier**: Sesuai kesepakatan, modul Kelola Supplier beserta *route*, UI, dan skema database-nya telah dihapus untuk menyederhanakan proses. Pembelian (restok barang) sekarang hanya menerima input teks bebas berupa nama penyuplai tanpa perlu mendaftarkannya terlebih dahulu.
+- **Pemulihan Modul Kelola Supplier**: Berdasarkan wawancara terbaru (04/08/2026), pengelolaan hutang/tempo sangat penting sehingga tabel supplier akan dihidupkan kembali dan dihubungkan dengan transaksi pembelian.

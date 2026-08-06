@@ -75,6 +75,12 @@ const createTransaksi = async (req, res) => {
       [calculatedTotal, id_transaksi]
     );
 
+    await connection.execute(
+      `INSERT INTO Jurnal_Akuntansi (keterangan, akun_debit, akun_kredit, nominal, id_transaksi_referensi, jenis_referensi) 
+       VALUES (?, 'Kas', 'Penjualan', ?, ?, 'Penjualan')`,
+      [`Penjualan ${jenis_transaksi} ID ${id_transaksi}`, calculatedTotal, id_transaksi]
+    );
+
     await connection.commit();
 
     res.status(201).json({
@@ -147,8 +153,92 @@ const getTransaksiById = async (req, res) => {
   }
 };
 
+const voidTransaksi = async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    const { id } = req.params;
+    const { alasan, password_otorisator, username_otorisator } = req.body;
+    
+    if (!alasan || !password_otorisator || !username_otorisator) {
+      return res.status(400).json({ message: 'Alasan dan kredensial otorisator wajib diisi' });
+    }
+
+    // Cek otorisator
+    const [authRows] = await db.execute(`
+      SELECT p.*, r.nama_role 
+      FROM Pengguna p 
+      JOIN Role r ON p.id_role = r.id_role 
+      WHERE p.nama_pengguna = ? AND p.is_active = 1
+    `, [username_otorisator]);
+
+    if (authRows.length === 0) {
+      return res.status(401).json({ message: 'Otorisator tidak valid' });
+    }
+    const otorisator = authRows[0];
+    
+    const bcrypt = require('bcryptjs');
+    const isMatch = await bcrypt.compare(password_otorisator, otorisator.password);
+    if (!isMatch) {
+       return res.status(401).json({ message: 'Password otorisator salah' });
+    }
+
+    if (!['Super Admin', 'Admin', 'Admin Penjualan'].includes(otorisator.nama_role)) {
+       return res.status(403).json({ message: 'User otorisator tidak memiliki hak akses untuk membatalkan transaksi' });
+    }
+
+    await connection.beginTransaction();
+
+    const [transaksiRows] = await connection.execute('SELECT * FROM Transaksi WHERE id_transaksi = ? FOR UPDATE', [id]);
+    if (transaksiRows.length === 0) {
+      throw new Error('Transaksi tidak ditemukan');
+    }
+    const transaksi = transaksiRows[0];
+
+    if (transaksi.total_bayar == 0) {
+       throw new Error('Transaksi ini sudah dibatalkan sebelumnya');
+    }
+
+    // Catat log void
+    await connection.execute(
+      'INSERT INTO void_log (id_kasir, id_otorisator, alasan, nominal_batal) VALUES (?, ?, ?, ?)',
+      [transaksi.id_pengguna, otorisator.id_pengguna, alasan, transaksi.total_bayar]
+    );
+
+    // Kembalikan stok
+    const [details] = await connection.execute('SELECT * FROM detail_transaksi WHERE id_transaksi = ?', [id]);
+    for (const item of details) {
+       if (transaksi.jenis_transaksi === 'Swalayan') {
+          await connection.execute('UPDATE Barang SET stok_swalayan = stok_swalayan + ? WHERE id_barang = ?', [item.quantity_barang, item.id_barang]);
+       } else if (transaksi.jenis_transaksi === 'Grosir') {
+          await connection.execute('UPDATE Barang SET stok_grosir = stok_grosir + ? WHERE id_barang = ?', [item.quantity_barang, item.id_barang]);
+       }
+    }
+
+    // Nolkan transaksi
+    await connection.execute('UPDATE Transaksi SET total_bayar = 0 WHERE id_transaksi = ?', [id]);
+    
+    // Jurnal pembalik
+    await connection.execute(
+      `INSERT INTO Jurnal_Akuntansi (keterangan, akun_debit, akun_kredit, nominal, id_transaksi_referensi, jenis_referensi) 
+       VALUES (?, 'Retur Penjualan', 'Kas', ?, ?, 'Penjualan')`,
+      [`Void Penjualan ID ${id}`, transaksi.total_bayar, id]
+    );
+
+    await connection.commit();
+    res.status(200).json({ message: 'Transaksi berhasil dibatalkan (void)' });
+
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('Error void transaksi:', error);
+    res.status(500).json({ message: error.message || 'Terjadi kesalahan internal' });
+  } finally {
+    if (connection) connection.release();
+  }
+};
+
 module.exports = {
   createTransaksi,
   getTransaksi,
-  getTransaksiById
+  getTransaksiById,
+  voidTransaksi
 };

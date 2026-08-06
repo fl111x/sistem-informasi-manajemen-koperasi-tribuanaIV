@@ -50,33 +50,23 @@ exports.getPembelianById = async (req, res) => {
   }
 };
 
-exports.createPembelian = async (req, res) => {
   const connection = await db.getConnection();
   try {
-    const { kategori, nama_supplier, items } = req.body;
+    const { kategori, id_supplier, items, metode_pembayaran, jatuh_tempo } = req.body;
     const id_pengguna = req.user.id_pengguna;
 
-    if (!kategori || !nama_supplier || !items || items.length === 0) {
-      return res.status(400).json({ message: 'Data tidak lengkap (kategori, nama_supplier, items wajib diisi)' });
+    if (!kategori || !id_supplier || !items || items.length === 0) {
+      return res.status(400).json({ message: 'Data tidak lengkap (kategori, id_supplier, items wajib diisi)' });
     }
 
     await connection.beginTransaction();
 
     let total_biaya = 0;
-
-    // Handle Supplier
-    let id_supplier;
-    const [suppRows] = await connection.execute('SELECT id_supplier FROM Supplier WHERE nama_supplier = ?', [nama_supplier]);
-    if (suppRows.length > 0) {
-      id_supplier = suppRows[0].id_supplier;
-    } else {
-      const [insertSupp] = await connection.execute('INSERT INTO Supplier (nama_supplier) VALUES (?)', [nama_supplier]);
-      id_supplier = insertSupp.insertId;
-    }
+    const status_pembayaran = metode_pembayaran === 'Tempo' ? 'Belum Lunas' : 'Lunas';
 
     const [pembelianResult] = await connection.execute(
-      'INSERT INTO Pembelian (kategori, status, id_supplier, id_pengguna, total_biaya) VALUES (?, ?, ?, ?, ?)',
-      [kategori, 'Menunggu', id_supplier, id_pengguna, total_biaya]
+      'INSERT INTO Pembelian (kategori, status, id_supplier, id_pengguna, total_biaya, metode_pembayaran, jatuh_tempo, status_pembayaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [kategori, 'Menunggu', id_supplier, id_pengguna, total_biaya, metode_pembayaran || 'Cash', jatuh_tempo || null, status_pembayaran]
     );
     const id_pembelian = pembelianResult.insertId;
 
@@ -96,8 +86,8 @@ exports.createPembelian = async (req, res) => {
             nama_barang, golongan, barcode, 
             harga_beli, harga_swalayan, harga_grosir, 
             stok_swalayan, stok_grosir, stok_minimal, 
-            satuan_swalayan, satuan_grosir
-          ) VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?)`,
+            satuan_swalayan, satuan_grosir, stok_gudang, is_konsinyasi
+          ) VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, 0, 0)`,
           [
             nama_barang, golongan || null, barcode || null,
             harga_beli || harga_satuan || 0, harga_swalayan || 0, harga_grosir || 0,
@@ -169,45 +159,49 @@ exports.updateStatus = async (req, res) => {
        return res.status(200).json({ message: "Status tidak ada perubahan" });
     }
 
-    // Mutasi logic
-    if (new_status === 'Dimutasi' && pembelian.status !== 'Dimutasi') {
+    // Mutasi logic (Gudang)
+    if (new_status === 'Diterima' && pembelian.status !== 'Diterima') {
       const [details] = await connection.execute('SELECT * FROM Detail_Pembelian WHERE id_pembelian = ?', [id_pembelian]);
 
       for (const item of details) {
         if (item.id_barang) {
-          if (pembelian.kategori === 'Swalayan') {
-            await connection.execute(
-              'UPDATE Barang SET stok_swalayan = stok_swalayan + ?, harga_beli = ? WHERE id_barang = ?',
-              [item.jumlah, item.harga_satuan, item.id_barang]
-            );
-          } else if (pembelian.kategori === 'Grosir') {
-            await connection.execute(
-              'UPDATE Barang SET stok_grosir = stok_grosir + ?, harga_beli = ? WHERE id_barang = ?',
-              [item.jumlah, item.harga_satuan, item.id_barang]
-            );
-          }
+          await connection.execute(
+            'UPDATE Barang SET stok_gudang = stok_gudang + ?, harga_beli = ? WHERE id_barang = ?',
+            [item.jumlah, item.harga_satuan, item.id_barang]
+          );
         }
       }
+
+      // Catat Jurnal Pembelian
+      await connection.execute(
+        `INSERT INTO Jurnal_Akuntansi (keterangan, akun_debit, akun_kredit, nominal, id_transaksi_referensi, jenis_referensi) 
+         VALUES (?, 'Persediaan Barang Dagang', ?, ?, ?, 'Pembelian')`,
+        [
+          \`Pembelian ID \${id_pembelian}\`, 
+          pembelian.metode_pembayaran === 'Tempo' ? 'Hutang Dagang' : 'Kas', 
+          pembelian.total_biaya, 
+          id_pembelian
+        ]
+      );
     }
 
     // Rollback stok opsional
-    if (pembelian.status === 'Dimutasi' && new_status !== 'Dimutasi') {
+    if (pembelian.status === 'Diterima' && new_status !== 'Diterima') {
        const [details] = await connection.execute('SELECT * FROM Detail_Pembelian WHERE id_pembelian = ?', [id_pembelian]);
        for (const item of details) {
         if (item.id_barang) {
-          if (pembelian.kategori === 'Swalayan') {
-            await connection.execute(
-              'UPDATE Barang SET stok_swalayan = stok_swalayan - ? WHERE id_barang = ?',
-              [item.jumlah, item.id_barang]
-            );
-          } else if (pembelian.kategori === 'Grosir') {
-            await connection.execute(
-              'UPDATE Barang SET stok_grosir = stok_grosir - ? WHERE id_barang = ?',
-              [item.jumlah, item.id_barang]
-            );
-          }
+          await connection.execute(
+            'UPDATE Barang SET stok_gudang = stok_gudang - ? WHERE id_barang = ?',
+            [item.jumlah, item.id_barang]
+          );
         }
       }
+      
+      // Hapus Jurnal Pembelian jika dibatalkan/direvert
+      await connection.execute(
+        `DELETE FROM Jurnal_Akuntansi WHERE id_transaksi_referensi = ? AND jenis_referensi = 'Pembelian'`,
+        [id_pembelian]
+      );
     }
 
     await connection.execute('UPDATE Pembelian SET status = ? WHERE id_pembelian = ?', [new_status, id_pembelian]);
