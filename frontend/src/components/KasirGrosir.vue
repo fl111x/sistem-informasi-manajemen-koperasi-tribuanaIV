@@ -72,11 +72,6 @@ const selectAnggota = (anggota) => {
   isAnggotaDropdownOpen.value = false;
 };
 
-// State Otorisasi Void
-const isVoidModalOpen = ref(false);
-const voidPin = ref('');
-const itemToVoid = ref(null);
-
 // State untuk Diskon
 const diskonRupiah = ref(0);
 const diskonPersen = ref(0);
@@ -136,20 +131,9 @@ const updateQtyManual = (index) => {
   sinkronisasiDiskon();
 };
 
-const mintaOtorisasiVoid = (index) => {
-  itemToVoid.value = index;
-  voidPin.value = '';
-  isVoidModalOpen.value = true;
-};
-
-const konfirmasiVoid = () => {
-  if (voidPin.value === '1234') { // Dummy PIN Supervisor
-    keranjang.value.splice(itemToVoid.value, 1);
-    sinkronisasiDiskon();
-    isVoidModalOpen.value = false;
-  } else {
-    tampilkanNotif('Otorisasi Gagal', 'PIN Supervisor salah. Void dibatalkan.');
-  }
+const hapusItem = (index) => {
+  keranjang.value.splice(index, 1);
+  sinkronisasiDiskon();
 };
 
 // ==========================================
@@ -358,7 +342,7 @@ const prosesTransaksi = async () => {
                 <!-- HAPUS TOTAL -->
                 <td class="px-3 py-2 text-center">
                   <button 
-                    @click="mintaOtorisasiVoid(index)" 
+                    @click="hapusItem(index)" 
                     class="text-slate-400 hover:text-red-600 hover:bg-red-50 p-1.5 rounded transition-all focus:outline-none" 
                     title="Hapus barang dari faktur"
                   >
@@ -509,28 +493,6 @@ const prosesTransaksi = async () => {
                   :class="notifTitle.includes('Berhasil') ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'">
             Tutup
           </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- MODAL OTORISASI VOID -->
-    <div v-if="isVoidModalOpen" class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-      <div class="bg-white w-full max-w-sm rounded-xl shadow-xl overflow-hidden">
-        <div class="p-6">
-          <h3 class="font-bold text-lg text-slate-800 mb-1 text-center">Otorisasi Void</h3>
-          <p class="text-sm text-slate-500 text-center mb-6">Masukkan PIN Supervisor (1234) untuk membatalkan barang.</p>
-          <input 
-            type="password" 
-            v-model="voidPin" 
-            placeholder="PIN Supervisor"
-            class="w-full border-b-2 border-slate-300 focus:border-red-500 text-center text-xl tracking-widest py-2 focus:outline-none bg-slate-50 mb-6"
-            autofocus
-            @keyup.enter="konfirmasiVoid"
-          >
-          <div class="flex gap-3">
-            <button @click="isVoidModalOpen = false" class="flex-1 py-2 rounded-md bg-slate-200 text-slate-700 font-bold hover:bg-slate-300">Batal</button>
-            <button @click="konfirmasiVoid" class="flex-1 py-2 rounded-md bg-red-600 text-white font-bold hover:bg-red-700">Void Item</button>
-          </div>
         </div>
       </div>
     </div>

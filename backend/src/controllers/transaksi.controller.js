@@ -157,34 +157,8 @@ const voidTransaksi = async (req, res) => {
   const connection = await db.getConnection();
   try {
     const { id } = req.params;
-    const { alasan, password_otorisator, username_otorisator } = req.body;
-    
-    if (!alasan || !password_otorisator || !username_otorisator) {
-      return res.status(400).json({ message: 'Alasan dan kredensial otorisator wajib diisi' });
-    }
-
-    // Cek otorisator
-    const [authRows] = await db.execute(`
-      SELECT p.*, r.nama_role 
-      FROM Pengguna p 
-      JOIN Role r ON p.id_role = r.id_role 
-      WHERE p.nama_pengguna = ? AND p.is_active = 1
-    `, [username_otorisator]);
-
-    if (authRows.length === 0) {
-      return res.status(401).json({ message: 'Otorisator tidak valid' });
-    }
-    const otorisator = authRows[0];
-    
-    const bcrypt = require('bcryptjs');
-    const isMatch = await bcrypt.compare(password_otorisator, otorisator.password);
-    if (!isMatch) {
-       return res.status(401).json({ message: 'Password otorisator salah' });
-    }
-
-    if (!['Super Admin', 'Admin', 'Admin Penjualan'].includes(otorisator.nama_role)) {
-       return res.status(403).json({ message: 'User otorisator tidak memiliki hak akses untuk membatalkan transaksi' });
-    }
+    const otorisatorId = req.user ? req.user.id_pengguna : 1; // Fallback jika tidak ada
+    const alasan = 'Dihapus oleh Admin';
 
     await connection.beginTransaction();
 

@@ -23,6 +23,36 @@ const months = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ];
 
+// Void Transaksi
+const isVoidModalOpen = ref(false);
+const transaksiToVoid = ref(null);
+const isSubmittingVoid = ref(false);
+
+const bukaModalVoid = (trx) => {
+  transaksiToVoid.value = trx;
+  isVoidModalOpen.value = true;
+};
+
+const tutupModalVoid = () => {
+  isVoidModalOpen.value = false;
+  transaksiToVoid.value = null;
+};
+
+const submitVoid = async () => {
+  try {
+    isSubmittingVoid.value = true;
+    await api.post(`/transaksi/${transaksiToVoid.value.id_transaksi}/void`);
+    alert('Transaksi berhasil dibatalkan (Void).');
+    tutupModalVoid();
+    await fetchLaporanBelanja();
+  } catch (error) {
+    console.error('Error void transaksi:', error);
+    alert(error.response?.data?.message || 'Gagal melakukan void transaksi.');
+  } finally {
+    isSubmittingVoid.value = false;
+  }
+};
+
 const fetchLaporanBelanja = async () => {
   try {
     isLoadingBelanja.value = true;
@@ -161,6 +191,8 @@ const formatDate = (dateString) => {
                   <th class="px-6 py-4">NRP</th>
                   <th class="px-6 py-4">Nama Anggota</th>
                   <th class="px-6 py-4 text-right">Total Belanja</th>
+                  <th class="px-6 py-4 text-center">Status</th>
+                  <th class="px-6 py-4 text-center w-24">Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -175,7 +207,18 @@ const formatDate = (dateString) => {
                   <td class="px-6 py-3 text-slate-700">{{ formatDate(item.waktu) }}</td>
                   <td class="px-6 py-3 text-slate-700">{{ item.nrp }}</td>
                   <td class="px-6 py-3 font-medium text-slate-800">{{ item.nama_anggota }}</td>
-                  <td class="px-6 py-3 text-right font-semibold text-blue-600">{{ formatRupiah(item.total_belanja) }}</td>
+                  <td class="px-6 py-3 text-right font-semibold text-blue-600">
+                    <span :class="{'line-through text-slate-400': item.total_belanja === 0}">{{ formatRupiah(item.total_belanja) }}</span>
+                  </td>
+                  <td class="px-6 py-3 text-center">
+                    <span v-if="item.total_belanja === 0" class="px-2 py-1 bg-red-100 text-red-700 text-[10px] font-bold rounded">Batal</span>
+                    <span v-else class="px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded">Berhasil</span>
+                  </td>
+                  <td class="px-6 py-3 text-center">
+                    <button v-if="item.total_belanja > 0" @click="bukaModalVoid(item)" class="bg-red-500 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded text-xs transition-colors shadow-sm w-full">
+                      Void
+                    </button>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -251,5 +294,30 @@ const formatDate = (dateString) => {
       </div>
 
     </div>
+
+    <!-- MODAL VOID TRANSAKSI -->
+    <div v-if="isVoidModalOpen" class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+      <div class="bg-white w-full max-w-md rounded-xl shadow-xl flex flex-col overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200 bg-red-50 flex justify-between items-center">
+          <h3 class="font-bold text-lg text-red-700">Otorisasi Void Transaksi</h3>
+          <button @click="tutupModalVoid" class="text-red-400 hover:text-red-600"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
+        </div>
+        
+        <div class="p-6 flex flex-col gap-4">
+          <div class="bg-slate-50 p-3 rounded text-sm text-slate-700 border border-slate-200 mb-2">
+            Anda akan membatalkan Transaksi <b>#TRX-{{ transaksiToVoid?.id_transaksi }}</b> senilai <b>{{ formatRupiah(transaksiToVoid?.total_belanja) }}</b>. Stok barang akan dikembalikan dan jurnal akuntansi pembalik akan dicatat. Tindakan ini memerlukan otorisasi Supervisor/Admin.
+          </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 flex-shrink-0">
+          <button @click="tutupModalVoid" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-md">Batal</button>
+          <button @click="submitVoid" :disabled="isSubmittingVoid" class="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm disabled:opacity-50 flex gap-2 items-center">
+            <span v-if="isSubmittingVoid">Memproses...</span>
+            <span v-else>Konfirmasi Void</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
   </main>
 </template>

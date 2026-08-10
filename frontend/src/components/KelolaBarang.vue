@@ -23,6 +23,15 @@ const idSedangDiedit = ref(null);
 const isDeleteModalOpen = ref(false);
 const itemToDelete = ref(null);
 
+const isMutasiModalOpen = ref(false);
+const formMutasi = ref({
+  id_barang: null,
+  nama_barang: '',
+  stok_gudang: 0,
+  jumlah: 0,
+  tujuan: 'Swalayan'
+});
+
 const isNotifModalOpen = ref(false);
 const notifTitle = ref('Pemberitahuan');
 const notifMessage = ref('');
@@ -132,6 +141,46 @@ const konfirmasiHapus = async () => {
   }
 };
 
+const bukaModalMutasi = (item) => {
+  formMutasi.value = {
+    id_barang: item.id_barang,
+    nama_barang: item.nama_barang,
+    stok_gudang: item.stok_gudang || 0,
+    jumlah: 0,
+    tujuan: 'Swalayan'
+  };
+  isMutasiModalOpen.value = true;
+};
+
+const tutupModalMutasi = () => {
+  isMutasiModalOpen.value = false;
+};
+
+const simpanMutasi = async () => {
+  if (formMutasi.value.jumlah <= 0) {
+    tampilkanNotif('Gagal', 'Jumlah mutasi harus lebih dari 0');
+    return;
+  }
+  if (formMutasi.value.jumlah > formMutasi.value.stok_gudang) {
+    tampilkanNotif('Gagal', 'Stok gudang tidak mencukupi');
+    return;
+  }
+  
+  try {
+    await api.post('/barang/mutasi', {
+      id_barang: formMutasi.value.id_barang,
+      jumlah: formMutasi.value.jumlah,
+      tujuan: formMutasi.value.tujuan
+    });
+    await fetchBarang();
+    tutupModalMutasi();
+    tampilkanNotif('Berhasil', 'Mutasi stok berhasil dilakukan');
+  } catch (error) {
+    console.error('Error mutasi:', error);
+    tampilkanNotif('Gagal Mutasi', error.response?.data?.message || 'Terjadi kesalahan saat memutasi stok.');
+  }
+};
+
 const fetchBarang = async () => {
   try {
     isLoading.value = true;
@@ -211,6 +260,7 @@ const formatRupiah = (angka) => {
               <th class="px-5 py-4 text-right">Harga Beli</th>
               <th class="px-5 py-4 text-right">Harga Swalayan</th>
               <th class="px-5 py-4 text-right">Harga Grosir</th>
+              <th class="px-5 py-4 text-center">Stok Gudang</th>
               <th class="px-5 py-4 text-center">Stok Swalayan</th>
               <th class="px-5 py-4 text-center">Stok Grosir</th>
               <th class="px-5 py-4 text-center">Aksi</th>
@@ -218,13 +268,13 @@ const formatRupiah = (angka) => {
           </thead>
           <tbody>
             <tr v-if="isLoading">
-              <td colspan="8" class="px-5 py-12 text-center text-slate-400">Memuat data...</td>
+              <td colspan="9" class="px-5 py-12 text-center text-slate-400">Memuat data...</td>
             </tr>
             <tr v-else-if="errorMessage">
-              <td colspan="8" class="px-5 py-12 text-center text-red-500">{{ errorMessage }}</td>
+              <td colspan="9" class="px-5 py-12 text-center text-red-500">{{ errorMessage }}</td>
             </tr>
             <tr v-else-if="dataDitampilkan.length === 0">
-              <td colspan="8" class="px-5 py-12 text-center text-slate-400">Barang tidak ditemukan.</td>
+              <td colspan="9" class="px-5 py-12 text-center text-slate-400">Barang tidak ditemukan.</td>
             </tr>
             <tr v-else v-for="(item, index) in dataDitampilkan" :key="item.id_barang || index" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
               <td class="px-5 py-3 font-medium text-slate-800">{{ item.nama_barang }}</td>
@@ -232,10 +282,14 @@ const formatRupiah = (angka) => {
               <td class="px-5 py-3 text-right text-slate-700">{{ formatRupiah(item.harga_beli) }}</td>
               <td class="px-5 py-3 text-right text-slate-700">{{ formatRupiah(item.harga_swalayan) }}</td>
               <td class="px-5 py-3 text-right text-slate-700">{{ formatRupiah(item.harga_grosir) }}</td>
+              <td class="px-5 py-3 text-center text-slate-700 font-bold bg-blue-50">{{ item.stok_gudang || 0 }}</td>
               <td class="px-5 py-3 text-center text-slate-700">{{ item.stok_swalayan }} {{ item.satuan_swalayan }}</td>
               <td class="px-5 py-3 text-center text-slate-700">{{ item.stok_grosir }} {{ item.satuan_grosir }}</td>
               <td class="px-5 py-3 text-center">
                 <div class="flex justify-center gap-2">
+                  <button @click="bukaModalMutasi(item)" class="text-slate-400 hover:text-green-600 bg-slate-100 hover:bg-green-50 p-1.5 rounded transition-colors" title="Mutasi Stok">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                  </button>
                   <button @click="bukaModalEdit(item)" class="text-slate-400 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 p-1.5 rounded transition-colors" title="Edit Barang">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                   </button>
@@ -366,6 +420,48 @@ const formatRupiah = (angka) => {
         <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
           <button @click="tutupModalHapus" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-md transition-colors w-full sm:w-auto">Batal</button>
           <button @click="konfirmasiHapus" class="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm transition-colors w-full sm:w-auto">Hapus Data</button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODAL MUTASI STOK -->
+    <!-- ========================================== -->
+    <div v-if="isMutasiModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+      <div class="bg-white w-full max-w-md rounded-xl shadow-xl flex flex-col overflow-hidden">
+        
+        <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+          <h3 class="font-bold text-lg text-slate-800">Mutasi Stok Gudang</h3>
+          <button @click="tutupModalMutasi" class="text-slate-400 hover:text-slate-600 focus:outline-none">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        <div class="p-6 flex flex-col gap-4">
+          <div class="bg-blue-50 p-4 rounded-md border border-blue-100 mb-2">
+            <p class="text-xs text-blue-500 font-semibold mb-1">Barang Terpilih:</p>
+            <p class="font-bold text-slate-800">{{ formMutasi.nama_barang }}</p>
+            <p class="text-sm text-slate-600 mt-1">Sisa Stok Gudang: <span class="font-bold text-slate-800">{{ formMutasi.stok_gudang }}</span></p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1">Tujuan Mutasi</label>
+            <select v-model="formMutasi.tujuan" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600">
+              <option value="Swalayan">Ke Toko Swalayan (Eceran)</option>
+              <option value="Grosir">Ke Toko Grosir (Partai)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1">Jumlah Mutasi</label>
+            <input type="number" v-model="formMutasi.jumlah" min="1" :max="formMutasi.stok_gudang" placeholder="0" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600">
+          </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+          <button @click="tutupModalMutasi" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-md transition-colors w-full sm:w-auto">Batal</button>
+          <button @click="simpanMutasi" class="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm transition-colors w-full sm:w-auto">Proses Mutasi</button>
         </div>
 
       </div>

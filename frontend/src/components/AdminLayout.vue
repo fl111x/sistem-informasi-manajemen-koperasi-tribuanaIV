@@ -43,14 +43,14 @@ const prosesLogout = async () => {
             Dashboard
           </router-link>
           
-          <router-link v-if="user?.nama_role === 'Administrator' || user?.id_role === 1" to="/kelola-barang" 
+          <router-link v-if="user?.nama_role === 'Admin Koperasi' || user?.id_role === 1" to="/kelola-barang" 
             class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"
             :class="route.path === '/kelola-barang' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 font-medium hover:bg-slate-100'">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
             Kelola Barang
           </router-link>
 
-          <router-link v-if="user?.nama_role === 'Administrator' || user?.id_role === 1" to="/kelola-anggota" 
+          <router-link v-if="user?.nama_role === 'Admin Koperasi' || user?.id_role === 1" to="/kelola-anggota" 
             class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"
             :class="route.path === '/kelola-anggota' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 font-medium hover:bg-slate-100'">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
@@ -59,35 +59,35 @@ const prosesLogout = async () => {
 
 
 
-          <router-link v-if="user?.nama_role === 'Administrator' || user?.nama_role === 'Gudang' || user?.id_role === 1" to="/pembelian" 
+          <router-link v-if="user?.nama_role === 'Admin Koperasi' || user?.nama_role === 'Gudang' || user?.id_role === 1" to="/pembelian" 
             class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"
             :class="route.path === '/pembelian' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 font-medium hover:bg-slate-100'">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
             Gudang & Pembelian
           </router-link>
 
-          <router-link v-if="user?.nama_role === 'Administrator' || user?.id_role === 1" to="/laporan-akuntansi" 
+          <router-link v-if="user?.nama_role === 'Admin Koperasi' || user?.id_role === 1" to="/laporan-akuntansi" 
             class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"
             :class="route.path === '/laporan-akuntansi' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 font-medium hover:bg-slate-100'">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             Akuntansi & Laporan
           </router-link>
 
-          <router-link v-if="user?.nama_role === 'Administrator' || user?.id_role === 1" to="/kelola-pengguna" 
+          <router-link v-if="user?.nama_role === 'Admin Koperasi' || user?.id_role === 1" to="/kelola-pengguna" 
             class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"
             :class="route.path === '/kelola-pengguna' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 font-medium hover:bg-slate-100'">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
             Kelola Pengguna
           </router-link>
           
-          <router-link v-if="user?.nama_role === 'Administrator' || user?.nama_role === 'Kasir Swalayan' || user?.id_role === 1 || user?.id_role === 2" to="/kasir-swalayan" 
+          <router-link v-if="user?.nama_role === 'Admin Koperasi' || user?.nama_role === 'Kasir Swalayan' || user?.id_role === 1 || user?.id_role === 2" to="/kasir-swalayan" 
             class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"
             :class="route.path === '/kasir-swalayan' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 font-medium hover:bg-slate-100'">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
             Kasir Swalayan
           </router-link>
           
-          <router-link v-if="user?.nama_role === 'Administrator' || user?.nama_role === 'Kasir Grosir' || user?.id_role === 1 || user?.id_role === 3" to="/kasir-grosir" 
+          <router-link v-if="user?.nama_role === 'Admin Koperasi' || user?.nama_role === 'Kasir Grosir' || user?.id_role === 1 || user?.id_role === 3" to="/kasir-grosir" 
             class="flex items-center gap-3 px-3 py-2.5 text-sm rounded-lg transition-colors"
             :class="route.path === '/kasir-grosir' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 font-medium hover:bg-slate-100'">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>

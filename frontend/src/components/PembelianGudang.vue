@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue';
 import api from '../services/api';
 
 const daftarPO = ref([]);
+const daftarSupplier = ref([]);
 
 const daftarBarang = ref([]);
 const isLoading = ref(false);
@@ -14,7 +15,9 @@ const activeTab = ref('Riwayat PO'); // 'Riwayat PO', 'Buat PO Baru'
 // State Form PO
 const formPO = ref({
   kategori: 'Swalayan',
-  nama_supplier: '',
+  id_supplier: '',
+  metode_pembayaran: 'Tunai',
+  jatuh_tempo: '',
   items: []
 });
 const barangPilihan = ref('');
@@ -144,13 +147,15 @@ const fetchData = async () => {
   try {
     isLoading.value = true;
     errorMessage.value = '';
-    const [resPO, resBarang] = await Promise.all([
+    const [resPO, resBarang, resSupplier] = await Promise.all([
       api.get('/pembelian').catch(() => ({ data: [] })),
-      api.get('/barang').catch(() => ({ data: [] }))
+      api.get('/barang').catch(() => ({ data: [] })),
+      api.get('/supplier').catch(() => ({ data: [] }))
     ]);
     
     daftarPO.value = resPO.data;
     daftarBarang.value = resBarang.data;
+    daftarSupplier.value = resSupplier.data;
   } catch (error) {
     console.error('Error fetching data:', error);
     errorMessage.value = 'Gagal memuat data pembelian dan master data.';
@@ -204,18 +209,30 @@ const totalBOPBaru = computed(() => {
 // Handle Simpan PO Baru
 const isSubmitting = ref(false);
 const simpanPOBaru = async () => {
-  if (!formPO.value.nama_supplier || formPO.value.items.length === 0) {
-    tampilkanNotif('Peringatan', 'Pastikan Nama Supplier dan minimal 1 Barang telah diisi.');
+  if (!formPO.value.id_supplier || formPO.value.items.length === 0) {
+    tampilkanNotif('Peringatan', 'Pastikan Supplier dan minimal 1 Barang telah dipilih.');
+    return;
+  }
+  
+  if (formPO.value.metode_pembayaran === 'Kontrabon' && !formPO.value.jatuh_tempo) {
+    tampilkanNotif('Peringatan', 'Tanggal jatuh tempo harus diisi untuk pembayaran Kontrabon.');
     return;
   }
 
   try {
     isSubmitting.value = true;
-    await api.post('/pembelian', formPO.value);
+    const payload = { ...formPO.value };
+    if (payload.metode_pembayaran === 'Kontrabon') {
+      payload.metode_pembayaran = 'Tempo';
+    } else {
+      payload.metode_pembayaran = 'Cash';
+    }
+    
+    await api.post('/pembelian', payload);
     tampilkanNotif('Berhasil', 'Purchase Order berhasil dibuat.');
     
     // Reset Form & pindah tab
-    formPO.value = { kategori: 'Swalayan', nama_supplier: '', items: [] };
+    formPO.value = { kategori: 'Swalayan', id_supplier: '', metode_pembayaran: 'Tunai', jatuh_tempo: '', items: [] };
     activeTab.value = 'Riwayat PO';
     await fetchData();
   } catch (error) {
@@ -351,17 +368,31 @@ const formatDate = (dateString) => {
           
           <div class="p-6 flex flex-col gap-6">
             <!-- Informasi Umum -->
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-1">Nama Supplier</label>
-                <input type="text" v-model="formPO.nama_supplier" placeholder="Contoh: PT. ABC atau Toko XYZ" class="w-full border border-slate-300 px-3 py-2.5 rounded-md focus:outline-none focus:border-blue-600 bg-white text-sm" />
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="lg:col-span-2">
+                <label class="block text-sm font-semibold text-slate-700 mb-1">Supplier</label>
+                <select v-model="formPO.id_supplier" class="w-full border border-slate-300 px-3 py-2.5 rounded-md focus:outline-none focus:border-blue-600 bg-white text-sm">
+                  <option disabled value="">-- Pilih Supplier --</option>
+                  <option v-for="s in daftarSupplier" :key="s.id_supplier" :value="s.id_supplier">{{ s.nama_supplier }}</option>
+                </select>
               </div>
-              <div>
+              <div class="lg:col-span-2">
                 <label class="block text-sm font-semibold text-slate-700 mb-1">Kategori Tujuan</label>
                 <select v-model="formPO.kategori" class="w-full border border-slate-300 px-3 py-2.5 rounded-md focus:outline-none focus:border-blue-600 bg-white text-sm">
                   <option value="Swalayan">Swalayan (Eceran)</option>
                   <option value="Grosir">Grosir</option>
                 </select>
+              </div>
+              <div class="lg:col-span-2">
+                <label class="block text-sm font-semibold text-slate-700 mb-1">Metode Pembayaran</label>
+                <select v-model="formPO.metode_pembayaran" class="w-full border border-slate-300 px-3 py-2.5 rounded-md focus:outline-none focus:border-blue-600 bg-white text-sm">
+                  <option value="Tunai">Tunai</option>
+                  <option value="Kontrabon">Kontrabon (Tempo)</option>
+                </select>
+              </div>
+              <div class="lg:col-span-2" v-if="formPO.metode_pembayaran === 'Kontrabon'">
+                <label class="block text-sm font-semibold text-slate-700 mb-1">Tanggal Jatuh Tempo</label>
+                <input type="date" v-model="formPO.jatuh_tempo" class="w-full border border-slate-300 px-3 py-2.5 rounded-md focus:outline-none focus:border-blue-600 bg-white text-sm" />
               </div>
             </div>
 
@@ -445,7 +476,7 @@ const formatDate = (dateString) => {
             </button>
             <button 
               @click="simpanPOBaru" 
-              :disabled="isSubmitting || formPO.items.length === 0 || !formPO.nama_supplier"
+              :disabled="isSubmitting || formPO.items.length === 0 || !formPO.id_supplier"
               class="px-6 py-2 rounded-md font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex gap-2 items-center"
             >
               <span v-if="isSubmitting">Menyimpan...</span>
