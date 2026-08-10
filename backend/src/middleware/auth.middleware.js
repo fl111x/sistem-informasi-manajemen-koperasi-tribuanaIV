@@ -48,7 +48,31 @@ const verifyAdmin = async (req, res, next) => {
   }
 };
 
+const authorizeRole = (allowedRoles) => {
+  return async (req, res, next) => {
+    try {
+      const id_role = req.user.id_role;
+      const [roles] = await db.execute('SELECT * FROM Role WHERE id_role = ?', [id_role]);
+      
+      if (roles.length === 0) {
+        return res.status(403).json({ message: 'Role (peran) tidak ditemukan' });
+      }
+
+      const roleName = roles[0].nama_role;
+
+      if (allowedRoles.includes(roleName)) {
+        next();
+      } else {
+        return res.status(403).json({ message: 'Anda tidak memiliki akses untuk aksi ini.' });
+      }
+    } catch (error) {
+      return res.status(500).json({ message: 'Terjadi kesalahan saat memeriksa hak akses' });
+    }
+  };
+};
+
 module.exports = {
   verifyToken,
-  verifyAdmin
+  verifyAdmin,
+  authorizeRole
 };

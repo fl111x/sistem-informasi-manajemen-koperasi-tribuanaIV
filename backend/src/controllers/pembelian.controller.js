@@ -50,6 +50,7 @@ exports.getPembelianById = async (req, res) => {
   }
 };
 
+exports.createPembelian = async (req, res) => {
   const connection = await db.getConnection();
   try {
     const { kategori, id_supplier, items, metode_pembayaran, jatuh_tempo } = req.body;
@@ -177,7 +178,7 @@ exports.updateStatus = async (req, res) => {
         `INSERT INTO Jurnal_Akuntansi (keterangan, akun_debit, akun_kredit, nominal, id_transaksi_referensi, jenis_referensi) 
          VALUES (?, 'Persediaan Barang Dagang', ?, ?, ?, 'Pembelian')`,
         [
-          \`Pembelian ID \${id_pembelian}\`, 
+          `Pembelian ID ${id_pembelian}`, 
           pembelian.metode_pembayaran === 'Tempo' ? 'Hutang Dagang' : 'Kas', 
           pembelian.total_biaya, 
           id_pembelian
