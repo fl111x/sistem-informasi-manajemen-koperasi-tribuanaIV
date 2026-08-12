@@ -7,7 +7,7 @@ const getDashboardData = async (req, res) => {
         jenis_transaksi,
         COALESCE(SUM(total_bayar), 0) as total_omzet
       FROM Transaksi 
-      WHERE waktu_transaksi >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+      WHERE DATE(waktu_transaksi) = CURDATE()
       GROUP BY jenis_transaksi
     `;
     const [omzetSektor] = await db.execute(queryOmzet);

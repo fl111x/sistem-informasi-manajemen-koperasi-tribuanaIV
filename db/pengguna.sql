@@ -18,10 +18,12 @@ CREATE TABLE `pengguna` (
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Dumping data for table pengguna
-INSERT INTO `pengguna` VALUES (1, 'admin', '$2b$10$vXCgGyD.ebnWEyrIm/FCMOkQI/gPSnJNmYg3Kb8HW614EzhdWZXj2', 'Administrator', 1);
-INSERT INTO `pengguna` VALUES (3, 'kasir_baru', '$2b$10$9hfX6WHJe0rM3UmZGl2nGOVF4K1bt7SjjM6fO3dDE9pmfyjP3l6yq', 'Kasir Toko', 2);
-INSERT INTO `pengguna` VALUES (4, 'test1_grosir', '$2b$10$p0H1qmZfiDa5KYNfud0SSe9tEQfND7x3G6HEHnjR.9sE10SJ/Ob22', 'Ammar', 3);
-INSERT INTO `pengguna` VALUES (5, 'aji', '$2b$10$VC5ObahiZHBGql0b51MpuuiNiCr/o4aqRn2bhK1tX9CC00qAz2Xy.', 'Aji Kartiko Hartanto', 3);
-INSERT INTO `pengguna` VALUES (6, 'ammar', '$2b$10$EEQox/Iypa9DXA.VAUr9mOW8i04aZ.R/cAB2ScC1jDD.wgotV0c26', 'Ammar Bagas Fathurrahman Wantoro', 2);
+INSERT INTO `pengguna` VALUES (1, 'admin_sistem', '$2b$10$vXCgGyD.ebnWEyrIm/FCMOkQI/gPSnJNmYg3Kb8HW614EzhdWZXj2', 'Admin Sistem Utama', 1);
+INSERT INTO `pengguna` VALUES (2, 'kasir_swalayan', '$2b$10$vXCgGyD.ebnWEyrIm/FCMOkQI/gPSnJNmYg3Kb8HW614EzhdWZXj2', 'Kasir Swalayan 1', 2);
+INSERT INTO `pengguna` VALUES (3, 'kasir_grosir', '$2b$10$vXCgGyD.ebnWEyrIm/FCMOkQI/gPSnJNmYg3Kb8HW614EzhdWZXj2', 'Kasir Grosir 1', 3);
+INSERT INTO `pengguna` VALUES (4, 'admin_pembelian', '$2b$10$vXCgGyD.ebnWEyrIm/FCMOkQI/gPSnJNmYg3Kb8HW614EzhdWZXj2', 'Admin Pembelian', 4);
+INSERT INTO `pengguna` VALUES (5, 'admin_order', '$2b$10$vXCgGyD.ebnWEyrIm/FCMOkQI/gPSnJNmYg3Kb8HW614EzhdWZXj2', 'Admin Order', 5);
+INSERT INTO `pengguna` VALUES (6, 'admin_penjualan', '$2b$10$vXCgGyD.ebnWEyrIm/FCMOkQI/gPSnJNmYg3Kb8HW614EzhdWZXj2', 'Admin Penjualan (Mutasi)', 6);
+INSERT INTO `pengguna` VALUES (7, 'admin_gudang', '$2b$10$vXCgGyD.ebnWEyrIm/FCMOkQI/gPSnJNmYg3Kb8HW614EzhdWZXj2', 'Admin Gudang', 7);
 
 SET FOREIGN_KEY_CHECKS=1;

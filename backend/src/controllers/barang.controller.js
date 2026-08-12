@@ -86,32 +86,38 @@ const createBarang = async (req, res) => {
   }
 };
 
-// Update barang
+// Update barang (Berfungsi seperti PATCH)
 const updateBarang = async (req, res) => {
   try {
     const { id } = req.params;
-    const { 
-      barcode, 
-      nama_barang, 
-      golongan,
-      harga_beli,
-      harga_swalayan, 
-      harga_grosir,
-      stok_swalayan, 
-      satuan_swalayan, 
-      stok_grosir, 
-      satuan_grosir,
-      stok_minimal,
-      stok_gudang,
-      is_konsinyasi
-    } = req.body;
+
+    // Get existing data
+    const [existing] = await db.execute('SELECT * FROM Barang WHERE id_barang = ?', [id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ message: 'Barang tidak ditemukan' });
+    }
+    const curr = existing[0];
+
+    const nama_barang = req.body.nama_barang !== undefined ? req.body.nama_barang : curr.nama_barang;
+    const golongan = req.body.golongan !== undefined ? req.body.golongan : curr.golongan;
+    const barcode = req.body.barcode !== undefined ? req.body.barcode : curr.barcode;
+    const harga_beli = req.body.harga_beli !== undefined ? req.body.harga_beli : curr.harga_beli;
+    const harga_swalayan = req.body.harga_swalayan !== undefined ? req.body.harga_swalayan : curr.harga_swalayan;
+    const harga_grosir = req.body.harga_grosir !== undefined ? req.body.harga_grosir : curr.harga_grosir;
+    const stok_swalayan = req.body.stok_swalayan !== undefined ? req.body.stok_swalayan : curr.stok_swalayan;
+    const stok_grosir = req.body.stok_grosir !== undefined ? req.body.stok_grosir : curr.stok_grosir;
+    const stok_minimal = req.body.stok_minimal !== undefined ? req.body.stok_minimal : curr.stok_minimal;
+    const satuan_swalayan = req.body.satuan_swalayan !== undefined ? req.body.satuan_swalayan : curr.satuan_swalayan;
+    const satuan_grosir = req.body.satuan_grosir !== undefined ? req.body.satuan_grosir : curr.satuan_grosir;
+    const stok_gudang = req.body.stok_gudang !== undefined ? req.body.stok_gudang : curr.stok_gudang;
+    const is_konsinyasi = req.body.is_konsinyasi !== undefined ? req.body.is_konsinyasi : curr.is_konsinyasi;
 
     if (!nama_barang) {
       return res.status(400).json({ message: 'Nama barang wajib diisi' });
     }
 
     // Check if new barcode clashes with another existing record
-    if (barcode) {
+    if (barcode && barcode !== curr.barcode) {
       const [existingRows] = await db.execute('SELECT id_barang FROM Barang WHERE barcode = ? AND id_barang != ? AND is_active = 1', [barcode, id]);
       if (existingRows.length > 0) {
         return res.status(400).json({ message: 'Barcode sudah digunakan oleh barang lain' });
@@ -133,10 +139,6 @@ const updateBarang = async (req, res) => {
         id
       ]
     );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Barang tidak ditemukan' });
-    }
 
     res.status(200).json({ message: 'Barang berhasil diperbarui' });
   } catch (error) {

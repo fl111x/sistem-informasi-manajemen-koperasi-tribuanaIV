@@ -1,6 +1,10 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import api from '../services/api';
+import { useAuthStore } from '../stores/auth';
+
+const authStore = useAuthStore();
+const user = computed(() => authStore.user);
 
 const daftarPO = ref([]);
 const daftarSupplier = ref([]);
@@ -10,7 +14,7 @@ const isLoading = ref(false);
 const errorMessage = ref('');
 
 // Tab State
-const activeTab = ref('Riwayat PO'); // 'Riwayat PO', 'Buat PO Baru'
+const activeTab = ref('Riwayat PO'); // 'Riwayat PO', 'Buat PO Baru', 'Hutang Supplier'
 
 // State Form PO
 const formPO = ref({
@@ -44,6 +48,15 @@ const bukaDetailPO = async (po) => {
   try {
     const res = await api.get(`/pembelian/${po.id_pembelian}`);
     poDetail.value = res.data;
+    
+    // Check missing items only if status is not Dimutasi or Batal
+    if (poDetail.value.status !== 'Dimutasi' && poDetail.value.status !== 'Batal') {
+       // Just to populate itemBelumLengkap computed
+    }
+    
+    // Copy items to editable temp items if needed for Edit PO
+    editPOItems.value = JSON.parse(JSON.stringify(res.data.items));
+
     isDetailModalOpen.value = true;
   } catch (error) {
     tampilkanNotif('Gagal', 'Gagal mengambil detail PO');
@@ -143,22 +156,138 @@ const simpanBarangBaru = async () => {
   }
 };
 
+// ================= HUTANG SUPPLIER =================
+const daftarHutang = ref([]);
+const isBayarHutangModalOpen = ref(false);
+const formBayarHutang = ref({
+  nominal_bayar: 0,
+  metode_pembayaran: 'Transfer',
+  keterangan: ''
+});
+const hutangTerpilih = ref(null);
+
+const bukaBayarHutang = (hutang) => {
+  hutangTerpilih.value = hutang;
+  formBayarHutang.value = {
+    nominal_bayar: hutang.sisa_hutang,
+    metode_pembayaran: 'Transfer',
+    keterangan: ''
+  };
+  isBayarHutangModalOpen.value = true;
+};
+
+const simpanBayarHutang = async () => {
+  try {
+    await api.post(`/hutang/${hutangTerpilih.value.id_hutang}/bayar`, formBayarHutang.value);
+    tampilkanNotif('Berhasil', 'Pembayaran hutang berhasil dicatat.');
+    isBayarHutangModalOpen.value = false;
+    await fetchData();
+  } catch (error) {
+    tampilkanNotif('Gagal', error.response?.data?.message || 'Gagal membayar hutang.');
+  }
+};
+
+// ================= MODAL MUTASI PARSIAL =================
+const isMutasiModalOpen = ref(false);
+const isSubmittingMutasi = ref(false);
+const formMutasi = ref({
+  mutasi_items: [],
+  keterangan_mutasi: ''
+});
+
+const bukaMutasiModal = () => {
+  formMutasi.value = {
+    mutasi_items: poDetail.value.items.map(i => {
+      const barangMaster = daftarBarang.value.find(b => b.id_barang === i.id_barang) || {};
+      return {
+        id_detail: i.id_detail,
+        id_barang: i.id_barang,
+        nama_barang: i.snapshot_nama_barang,
+        jumlah_total: i.jumlah,
+        jumlah_dimutasi_sebelumnya: i.jumlah_dimutasi || 0,
+        jumlah_mutasi: 0,
+        harga_beli: barangMaster.harga_beli || 0,
+        harga_swalayan: barangMaster.harga_swalayan || 0,
+        harga_grosir: barangMaster.harga_grosir || 0,
+        satuan_swalayan: barangMaster.satuan_swalayan || '',
+        satuan_grosir: barangMaster.satuan_grosir || ''
+      };
+    }).filter(i => i.jumlah_total > i.jumlah_dimutasi_sebelumnya)
+  };
+  if(formMutasi.value.mutasi_items.length === 0){
+      tampilkanNotif('Info', 'Semua barang sudah dimutasi penuh.');
+      return;
+  }
+  isMutasiModalOpen.value = true;
+};
+
+const simpanMutasiPO = async () => {
+  try {
+    isSubmittingMutasi.value = true;
+    await api.post(`/pembelian/${poDetail.value.id_pembelian}/mutasi`, formMutasi.value);
+    tampilkanNotif('Berhasil', 'Mutasi parsial berhasil dilakukan.');
+    isMutasiModalOpen.value = false;
+    isDetailModalOpen.value = false;
+    await fetchData();
+  } catch (error) {
+    tampilkanNotif('Gagal', error.response?.data?.message || 'Gagal memutasi PO.');
+  } finally {
+    isSubmittingMutasi.value = false;
+  }
+};
+
+// ================= MODAL TERIMA (Catatan Gudang) =================
+const isTerimaModalOpen = ref(false);
+const catatanGudang = ref('');
+const bukaTerimaModal = () => {
+  catatanGudang.value = '';
+  isTerimaModalOpen.value = true;
+};
+const terimaPO = async () => {
+  try {
+    await api.put(`/pembelian/${poDetail.value.id_pembelian}/status`, { status: 'Diterima', catatan_gudang: catatanGudang.value });
+    tampilkanNotif('Berhasil', 'Status PO diubah menjadi Diterima.');
+    isTerimaModalOpen.value = false;
+    isDetailModalOpen.value = false;
+    await fetchData();
+  } catch (error) {
+    tampilkanNotif('Gagal', error.response?.data?.message || 'Gagal update status PO.');
+  }
+};
+
+// ================= EDIT PO =================
+const isEditPO = ref(false);
+const editPOItems = ref([]);
+const simpanEditPO = async () => {
+  try {
+    await api.put(`/pembelian/${poDetail.value.id_pembelian}/edit`, { items: editPOItems.value });
+    tampilkanNotif('Berhasil', 'Perubahan PO berhasil disimpan.');
+    isEditPO.value = false;
+    await bukaDetailPO(poDetail.value); // refresh detail modal
+    await fetchData();
+  } catch (error) {
+    tampilkanNotif('Gagal', error.response?.data?.message || 'Gagal menyimpan PO.');
+  }
+};
+
 const fetchData = async () => {
   try {
     isLoading.value = true;
     errorMessage.value = '';
-    const [resPO, resBarang, resSupplier] = await Promise.all([
+    const [resPO, resBarang, resSupplier, resHutang] = await Promise.all([
       api.get('/pembelian').catch(() => ({ data: [] })),
       api.get('/barang').catch(() => ({ data: [] })),
-      api.get('/supplier').catch(() => ({ data: [] }))
+      api.get('/supplier').catch(() => ({ data: [] })),
+      api.get('/hutang').catch(() => ({ data: [] }))
     ]);
     
     daftarPO.value = resPO.data;
     daftarBarang.value = resBarang.data;
     daftarSupplier.value = resSupplier.data;
+    daftarHutang.value = resHutang.data;
   } catch (error) {
     console.error('Error fetching data:', error);
-    errorMessage.value = 'Gagal memuat data pembelian dan master data.';
+    errorMessage.value = 'Gagal memuat data.';
   } finally {
     isLoading.value = false;
   }
@@ -282,12 +411,19 @@ const formatDate = (dateString) => {
         >
           Riwayat PO
         </button>
-        <button 
+        <button v-if="user?.nama_role === 'Admin Sistem' || user?.nama_role === 'Admin Pembelian'"
           @click="activeTab = 'Buat PO Baru'" 
           :class="activeTab === 'Buat PO Baru' ? 'bg-blue-600 text-white shadow-sm font-bold' : 'text-slate-500 hover:text-slate-700'"
           class="px-4 py-2 rounded-md text-sm transition-all"
         >
           Buat PO Baru
+        </button>
+        <button v-if="user?.nama_role === 'Admin Sistem' || user?.nama_role === 'Admin Pembelian'"
+          @click="activeTab = 'Hutang Supplier'" 
+          :class="activeTab === 'Hutang Supplier' ? 'bg-white shadow-sm font-bold text-slate-800' : 'text-slate-500 hover:text-slate-700'"
+          class="px-4 py-2 rounded-md text-sm transition-all"
+        >
+          Hutang Supplier
         </button>
       </div>
     </header>
@@ -337,6 +473,7 @@ const formatDate = (dateString) => {
                       class="px-2 py-1 rounded text-[11px] font-bold"
                       :class="{
                         'bg-yellow-100 text-yellow-700': po.status === 'Menunggu',
+                        'bg-orange-100 text-orange-700': po.status === 'Dipesan',
                         'bg-blue-100 text-blue-700': po.status === 'Diterima',
                         'bg-green-100 text-green-700': po.status === 'Dimutasi',
                         'bg-red-100 text-red-700': po.status === 'Ditunda' || po.status === 'Batal'
@@ -355,6 +492,61 @@ const formatDate = (dateString) => {
             </table>
           </div>
 
+        </div>
+      </div>
+
+      <!-- TAB: HUTANG SUPPLIER -->
+      <div v-else-if="activeTab === 'Hutang Supplier'" class="h-full">
+        <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden h-full flex flex-col">
+          <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <h2 class="font-bold text-slate-700">Daftar Hutang Jatuh Tempo</h2>
+            <button @click="fetchData" class="text-sm text-blue-600 font-semibold hover:underline flex items-center gap-1">
+              Segarkan
+            </button>
+          </div>
+          <div class="flex-1 overflow-auto">
+            <table class="w-full text-left text-sm text-slate-600">
+              <thead class="bg-slate-100 text-slate-600 uppercase font-bold text-[11px] tracking-wider border-b border-slate-200 sticky top-0 z-10">
+                <tr>
+                  <th class="px-5 py-4">PO Referensi</th>
+                  <th class="px-5 py-4">Supplier</th>
+                  <th class="px-5 py-4">Jatuh Tempo</th>
+                  <th class="px-5 py-4 text-right">Total Hutang</th>
+                  <th class="px-5 py-4 text-right">Sisa Hutang</th>
+                  <th class="px-5 py-4 text-center">Status</th>
+                  <th class="px-5 py-4 text-center">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="isLoading">
+                  <td colspan="7" class="px-5 py-12 text-center text-slate-400">Memuat data...</td>
+                </tr>
+                <tr v-else-if="daftarHutang.length === 0">
+                  <td colspan="7" class="px-5 py-12 text-center text-slate-400">Belum ada data hutang.</td>
+                </tr>
+                <tr v-else v-for="h in daftarHutang" :key="h.id_hutang" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                  <td class="px-5 py-3 font-medium text-slate-800">#PO-{{ h.id_pembelian }}</td>
+                  <td class="px-5 py-3 text-slate-700">{{ h.nama_supplier }}</td>
+                  <td class="px-5 py-3 font-semibold text-red-600">{{ formatDate(h.tanggal_jatuh_tempo).split(',')[0] }}</td>
+                  <td class="px-5 py-3 text-right text-slate-700">{{ formatRupiah(h.total_hutang) }}</td>
+                  <td class="px-5 py-3 text-right font-bold text-slate-800">{{ formatRupiah(h.sisa_hutang) }}</td>
+                  <td class="px-5 py-3 text-center">
+                    <span 
+                      class="px-2 py-1 rounded text-[11px] font-bold"
+                      :class="{'bg-red-100 text-red-700': h.status_lunas === 'Belum Lunas', 'bg-yellow-100 text-yellow-700': h.status_lunas === 'Sebagian', 'bg-green-100 text-green-700': h.status_lunas === 'Lunas'}"
+                    >
+                      {{ h.status_lunas }}
+                    </span>
+                  </td>
+                  <td class="px-5 py-3 text-center">
+                    <button v-if="h.status_lunas !== 'Lunas'" @click="bukaBayarHutang(h)" class="text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded shadow-sm">
+                      Bayar
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -508,8 +700,18 @@ const formatDate = (dateString) => {
           </div>
 
           <!-- Note Mutasi -->
-          <div v-if="poDetail?.status === 'Menunggu' || poDetail?.status === 'Diterima'" class="mb-4 bg-yellow-50 border-l-4 border-yellow-400 p-3 text-sm text-yellow-800">
-            <strong>Perhatian:</strong> PO ini belum dimutasi ke stok fisik. Klik tombol <b>"Mutasi ke Stok Fisik"</b> di bawah agar kuantitas barang otomatis bertambah di Master Barang.
+          <div v-if="poDetail?.status === 'Diterima'" class="mb-4 bg-yellow-50 border-l-4 border-yellow-400 p-3 text-sm text-yellow-800">
+            <strong>Perhatian:</strong> PO ini belum dimutasi ke stok fisik. Admin Penjualan dapat melakukan mutasi parsial.
+          </div>
+
+          <!-- Catatan Gudang -->
+          <div v-if="poDetail?.catatan_gudang" class="mb-4 bg-orange-50 border-l-4 border-orange-400 p-3 text-sm text-orange-900 rounded">
+            <strong>Catatan dari Gudang:</strong> {{ poDetail.catatan_gudang }}
+          </div>
+          
+          <div v-if="poDetail?.keterangan_mutasi" class="mb-4 bg-indigo-50 border-l-4 border-indigo-400 p-3 text-sm text-indigo-900 rounded whitespace-pre-wrap">
+            <strong>Keterangan Administrasi Mutasi Terakhir:</strong><br/>
+            {{ poDetail.keterangan_mutasi }}
           </div>
           
           <!-- Peringatan Barang Belum Lengkap -->
@@ -529,23 +731,82 @@ const formatDate = (dateString) => {
             PO ini telah diselesaikan dan stok barang telah <strong>otomatis bertambah</strong> pada gudang/master barang.
           </div>
 
-          <!-- (Idealnya ambil detail items dari API getById, karena data riwayat PO di /pembelian mungkin tidak punya array items lengkap. 
-               Untuk simulasi, kita tampilkan totalnya saja jika items kosong). -->
-          <h4 class="font-bold text-slate-800 text-sm mb-2 border-b border-slate-200 pb-1">Ringkasan Total Biaya</h4>
-          <div class="text-3xl font-black text-blue-600 mb-4">{{ formatRupiah(poDetail?.total_biaya) }}</div>
+          <h4 class="font-bold text-slate-800 text-sm mb-2 border-b border-slate-200 pb-2 flex justify-between items-center">
+            <span>Daftar Barang</span>
+            <button v-if="poDetail?.status === 'Diterima' && (user?.nama_role === 'Admin Sistem' || user?.nama_role === 'Admin Pembelian') && !isEditPO" 
+                    @click="isEditPO = true" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded shadow-sm text-sm">
+              Edit Barang (Revisi)
+            </button>
+            <div v-if="isEditPO" class="flex gap-2">
+              <button @click="isEditPO = false" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded shadow-sm text-sm">Batal Edit</button>
+              <button @click="simpanEditPO" class="bg-green-600 hover:bg-green-700 text-white font-bold px-3 py-1.5 rounded shadow-sm text-sm">Simpan Perubahan</button>
+            </div>
+          </h4>
+          
+          <div class="border border-slate-200 rounded-lg overflow-hidden mb-4">
+             <table class="w-full text-left text-xs text-slate-600">
+                <thead class="bg-slate-100 uppercase font-bold tracking-wider border-b border-slate-200">
+                  <tr>
+                    <th class="px-3 py-2">Barang</th>
+                    <th class="px-3 py-2 text-center">Jumlah Pesan</th>
+                    <th class="px-3 py-2 text-center" v-if="poDetail?.status === 'Diterima' || poDetail?.status === 'Dimutasi'">Dimutasi</th>
+                    <th class="px-3 py-2 text-right">Harga</th>
+                    <th class="px-3 py-2 text-right">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Tampilan Biasa -->
+                  <template v-if="!isEditPO">
+                    <tr v-for="item in poDetail?.items" :key="item.id_detail" class="border-b border-slate-100">
+                      <td class="px-3 py-2 font-medium">{{ item.snapshot_nama_barang }}</td>
+                      <td class="px-3 py-2 text-center">{{ item.jumlah }}</td>
+                      <td class="px-3 py-2 text-center text-blue-600 font-bold" v-if="poDetail?.status === 'Diterima' || poDetail?.status === 'Dimutasi'">{{ item.jumlah_dimutasi || 0 }}</td>
+                      <td class="px-3 py-2 text-right">{{ formatRupiah(item.harga_satuan) }}</td>
+                      <td class="px-3 py-2 text-right font-bold">{{ formatRupiah(item.jumlah * item.harga_satuan) }}</td>
+                    </tr>
+                  </template>
+                  <!-- Mode Edit -->
+                  <template v-else>
+                    <tr v-for="item in editPOItems" :key="item.id_detail" class="border-b border-slate-100">
+                      <td class="px-3 py-2 font-medium">{{ item.snapshot_nama_barang }}</td>
+                      <td class="px-3 py-2 text-center"><input type="number" v-model="item.jumlah" min="0" class="w-16 border rounded text-center px-1 py-0.5"></td>
+                      <td class="px-3 py-2 text-center" v-if="poDetail?.status === 'Diterima' || poDetail?.status === 'Dimutasi'">-</td>
+                      <td class="px-3 py-2 text-right"><input type="number" v-model="item.harga_satuan" min="0" class="w-24 border rounded text-right px-1 py-0.5"></td>
+                      <td class="px-3 py-2 text-right font-bold">{{ formatRupiah(item.jumlah * item.harga_satuan) }}</td>
+                    </tr>
+                  </template>
+                </tbody>
+             </table>
+          </div>
+
+          <div class="text-right">
+             <span class="text-xs text-slate-500 font-bold block mb-1">Total Biaya:</span>
+             <div class="text-3xl font-black text-blue-600">{{ formatRupiah(poDetail?.total_biaya) }}</div>
+          </div>
         </div>
 
         <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 flex-shrink-0">
           <button @click="isDetailModalOpen = false" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-md">Tutup</button>
           
           <template v-if="poDetail?.status !== 'Dimutasi' && poDetail?.status !== 'Batal'">
-            <button v-if="poDetail?.status === 'Menunggu'" @click="updateStatusPO(poDetail.id_pembelian, 'Diterima')" class="px-4 py-2 text-sm font-bold text-slate-700 bg-yellow-400 hover:bg-yellow-500 rounded-md shadow-sm">
-              Tandai Diterima (Gudang)
+            
+            <button v-if="poDetail?.status === 'Menunggu' && (user?.nama_role === 'Admin Sistem' || user?.nama_role === 'Admin Order')" 
+                    @click="updateStatusPO(poDetail.id_pembelian, 'Dipesan')" class="px-4 py-2 text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-md shadow-sm">
+              Tandai Dipesan (Admin Order)
             </button>
-            <button @click="updateStatusPO(poDetail.id_pembelian, 'Dimutasi')" :disabled="itemBelumLengkap.length > 0" class="px-4 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
-              Mutasi ke Stok Fisik (Selesai)
+
+            <button v-if="poDetail?.status === 'Dipesan' && (user?.nama_role === 'Admin Sistem' || user?.nama_role === 'Admin Gudang')" 
+                    @click="bukaTerimaModal" class="px-4 py-2 text-sm font-bold text-slate-700 bg-yellow-400 hover:bg-yellow-500 rounded-md shadow-sm">
+              Terima & Catat (Admin Gudang)
             </button>
-            <button @click="updateStatusPO(poDetail.id_pembelian, 'Batal')" class="px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-md">
+
+            <button v-if="poDetail?.status === 'Diterima' && (user?.nama_role === 'Admin Sistem' || user?.nama_role === 'Admin Penjualan')" 
+                    @click="bukaMutasiModal" :disabled="itemBelumLengkap.length > 0 || isEditPO" class="px-4 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-md shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+              Mutasi Parsial (Admin Penjualan)
+            </button>
+
+            <button v-if="user?.nama_role === 'Admin Sistem' || user?.nama_role === 'Admin Pembelian'" 
+                    @click="updateStatusPO(poDetail.id_pembelian, 'Batal')" class="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm">
               Batalkan PO
             </button>
           </template>
@@ -607,6 +868,7 @@ const formatDate = (dateString) => {
 
     <!-- MODAL BARANG BARU CEPAT -->
     <div v-if="isBarangBaruModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+      <!-- ... existing code ... -->
       <div class="bg-white w-full max-w-md rounded-xl shadow-xl flex flex-col overflow-hidden max-h-[90vh]">
         <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center flex-shrink-0">
           <h3 class="font-bold text-lg text-slate-800">Tambah Barang Cepat</h3>
@@ -630,6 +892,124 @@ const formatDate = (dateString) => {
             <span v-if="isSubmittingBarang">Menyimpan...</span>
             <span v-else>Simpan ke Master</span>
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL TERIMA GUDANG -->
+    <div v-if="isTerimaModalOpen" class="fixed inset-0 z-[55] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+      <div class="bg-white w-full max-w-md rounded-xl shadow-xl flex flex-col overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+          <h3 class="font-bold text-lg text-slate-800">Penerimaan Gudang</h3>
+        </div>
+        <div class="p-6">
+          <label class="block text-sm font-semibold text-slate-700 mb-1">Catatan Gudang (Jika ada barang kurang/rusak)</label>
+          <textarea v-model="catatanGudang" rows="3" placeholder="Contoh: Indomie goreng kurang 1 dus, bumbunya bocor..." class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm"></textarea>
+        </div>
+        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+          <button @click="isTerimaModalOpen = false" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-md">Batal</button>
+          <button @click="terimaPO" class="px-4 py-2 text-sm font-bold text-slate-800 bg-yellow-400 hover:bg-yellow-500 rounded-md shadow-sm">Konfirmasi Terima</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL MUTASI PARSIAL -->
+    <div v-if="isMutasiModalOpen" class="fixed inset-0 z-[55] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+      <div class="bg-white w-full max-w-3xl rounded-xl shadow-xl flex flex-col overflow-hidden max-h-[90vh]">
+        <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+          <h3 class="font-bold text-lg text-slate-800">Mutasi Fisik ke Toko</h3>
+        </div>
+        <div class="p-6 overflow-y-auto flex flex-col gap-4">
+           <div class="bg-blue-50 text-blue-800 text-sm p-3 rounded mb-2 border border-blue-200">
+             Tentukan berapa jumlah barang yang akan dimasukkan ke stok rak toko (Swalayan/Grosir) saat ini. 
+             Sisa barang yang belum dimutasi akan tetap tercatat di sistem sebagai stok gudang sementara.
+           </div>
+           
+           <div class="flex flex-col gap-3">
+             <div v-for="(item, idx) in formMutasi.mutasi_items" :key="idx" class="border border-slate-200 rounded overflow-hidden">
+               
+               <!-- Baris Info Mutasi -->
+               <div class="bg-slate-100 p-3 flex flex-wrap justify-between items-center gap-4 border-b border-slate-200">
+                 <div class="font-bold text-slate-800">{{ item.nama_barang }}</div>
+                 <div class="flex items-center gap-4 flex-wrap">
+                   <div class="text-sm text-slate-600">Pesan: <span class="font-bold">{{ item.jumlah_total }}</span></div>
+                   <div class="text-sm text-slate-600">Telah Mutasi: <span class="font-bold">{{ item.jumlah_dimutasi_sebelumnya }}</span></div>
+                   <div class="flex items-center gap-2 bg-white px-2 py-1 rounded shadow-sm border border-slate-300">
+                     <label class="text-sm font-bold text-blue-700">Mutasi Saat Ini:</label>
+                     <input type="number" v-model="item.jumlah_mutasi" min="0" :max="item.jumlah_total - item.jumlah_dimutasi_sebelumnya" class="w-20 border-b border-slate-400 focus:border-blue-600 focus:outline-none text-center font-bold">
+                   </div>
+                 </div>
+               </div>
+
+               <!-- Form Edit Master -->
+               <div class="p-3 bg-white">
+                 <p class="text-[11px] font-bold text-slate-400 uppercase mb-2">Penyesuaian Data Master (Opsional)</p>
+                 <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div>
+                       <label class="block text-xs font-semibold text-slate-600 mb-1">Harga Beli</label>
+                       <input type="number" v-model="item.harga_beli" class="w-full border border-slate-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                       <label class="block text-xs font-semibold text-slate-600 mb-1">Harga Swalayan</label>
+                       <input type="number" v-model="item.harga_swalayan" class="w-full border border-slate-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                       <label class="block text-xs font-semibold text-slate-600 mb-1">Harga Grosir</label>
+                       <input type="number" v-model="item.harga_grosir" class="w-full border border-slate-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                       <label class="block text-xs font-semibold text-slate-600 mb-1">Satuan Swalayan</label>
+                       <input type="text" v-model="item.satuan_swalayan" class="w-full border border-slate-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                       <label class="block text-xs font-semibold text-slate-600 mb-1">Satuan Grosir</label>
+                       <input type="text" v-model="item.satuan_grosir" class="w-full border border-slate-300 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500">
+                    </div>
+                 </div>
+               </div>
+
+             </div>
+           </div>
+        </div>
+        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+          <button @click="isMutasiModalOpen = false" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-md">Batal</button>
+          <button @click="simpanMutasiPO" :disabled="isSubmittingMutasi" class="px-4 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-md shadow-sm disabled:opacity-50">
+             {{ isSubmittingMutasi ? 'Memproses...' : 'Simpan Mutasi' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL BAYAR HUTANG -->
+    <div v-if="isBayarHutangModalOpen" class="fixed inset-0 z-[55] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+      <div class="bg-white w-full max-w-md rounded-xl shadow-xl flex flex-col overflow-hidden">
+        <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+          <h3 class="font-bold text-lg text-slate-800">Bayar Hutang Supplier</h3>
+        </div>
+        <div class="p-6 flex flex-col gap-4">
+          <div class="bg-slate-100 p-3 rounded text-sm text-slate-700">
+             <strong>Sisa Hutang:</strong> <span class="font-bold text-red-600 text-lg">{{ formatRupiah(hutangTerpilih?.sisa_hutang) }}</span>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1">Nominal Bayar <span class="text-red-500">*</span></label>
+            <input type="number" v-model="formBayarHutang.nominal_bayar" min="1" :max="hutangTerpilih?.sisa_hutang" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1">Metode</label>
+            <select v-model="formBayarHutang.metode_pembayaran" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
+              <option value="Transfer">Transfer Bank</option>
+              <option value="Cash">Cash Keras</option>
+              <option value="Cek">Cek / Giro</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1">Keterangan / Ref Transfer</label>
+            <input type="text" v-model="formBayarHutang.keterangan" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
+          </div>
+        </div>
+        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+          <button @click="isBayarHutangModalOpen = false" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-md">Batal</button>
+          <button @click="simpanBayarHutang" class="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow-sm">Simpan Pembayaran</button>
         </div>
       </div>
     </div>

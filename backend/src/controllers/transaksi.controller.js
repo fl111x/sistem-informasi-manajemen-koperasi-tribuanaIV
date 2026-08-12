@@ -27,6 +27,7 @@ const createTransaksi = async (req, res) => {
 
     const id_transaksi = transaksiResult.insertId;
     let calculatedTotal = 0;
+    let calculatedKeuntungan = 0;
 
     for (const item of items) {
       const { id_barang, quantity, diskon } = item;
@@ -39,6 +40,7 @@ const createTransaksi = async (req, res) => {
 
       const barang = barangRows[0];
       let subtotal = 0;
+      let modal_awal = barang.harga_beli * quantity;
 
       if (jenis_transaksi === 'Swalayan') {
         if (barang.stok_swalayan < quantity) {
@@ -46,6 +48,7 @@ const createTransaksi = async (req, res) => {
         }
         subtotal = (barang.harga_swalayan * quantity) - discount;
         calculatedTotal += subtotal;
+        calculatedKeuntungan += (subtotal - modal_awal);
 
         await connection.execute(
           'UPDATE Barang SET stok_swalayan = stok_swalayan - ? WHERE id_barang = ?',
@@ -57,6 +60,7 @@ const createTransaksi = async (req, res) => {
         }
         subtotal = (barang.harga_grosir * quantity) - discount;
         calculatedTotal += subtotal;
+        calculatedKeuntungan += (subtotal - modal_awal);
 
         await connection.execute(
           'UPDATE Barang SET stok_grosir = stok_grosir - ? WHERE id_barang = ?',
@@ -65,14 +69,14 @@ const createTransaksi = async (req, res) => {
       }
 
       await connection.execute(
-        'INSERT INTO detail_transaksi (id_transaksi, id_barang, quantity_barang, diskon, subtotal, snapshot_nama_barang) VALUES (?, ?, ?, ?, ?, ?)',
-        [id_transaksi, id_barang, quantity, discount, subtotal, barang.nama_barang]
+        'INSERT INTO detail_transaksi (id_transaksi, id_barang, quantity_barang, diskon, subtotal, snapshot_nama_barang, snapshot_harga_beli) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [id_transaksi, id_barang, quantity, discount, subtotal, barang.nama_barang, barang.harga_beli || 0]
       );
     }
 
     await connection.execute(
-      'UPDATE Transaksi SET total_bayar = ? WHERE id_transaksi = ?',
-      [calculatedTotal, id_transaksi]
+      'UPDATE Transaksi SET total_bayar = ?, total_keuntungan = ? WHERE id_transaksi = ?',
+      [calculatedTotal, calculatedKeuntungan, id_transaksi]
     );
 
     await connection.execute(
@@ -188,8 +192,8 @@ const voidTransaksi = async (req, res) => {
        }
     }
 
-    // Nolkan transaksi
-    await connection.execute('UPDATE Transaksi SET total_bayar = 0 WHERE id_transaksi = ?', [id]);
+    // Nolkan transaksi dan keuntungan
+    await connection.execute('UPDATE Transaksi SET total_bayar = 0, total_keuntungan = 0 WHERE id_transaksi = ?', [id]);
     
     // Jurnal pembalik
     await connection.execute(

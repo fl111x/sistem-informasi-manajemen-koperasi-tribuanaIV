@@ -1,6 +1,10 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import api from '../services/api';
+import { useAuthStore } from '../stores/auth';
+
+const authStore = useAuthStore();
+const user = computed(() => authStore.user);
 
 // State untuk form filter
 const searchQuery = ref('');
@@ -57,6 +61,7 @@ const formBarang = ref({
   harga_grosir: 0,
   satuan_swalayan: '',
   satuan_grosir: '',
+  stok_gudang: 0,
   stok_minimal: 10
 });
 
@@ -74,6 +79,7 @@ const bukaModalTambah = () => {
     harga_grosir: 0,
     satuan_swalayan: '',
     satuan_grosir: '',
+    stok_gudang: 0,
     stok_minimal: 10
   };
   isModalOpen.value = true;
@@ -93,6 +99,7 @@ const bukaModalEdit = (item) => {
     harga_grosir: item.harga_grosir || 0,
     satuan_swalayan: item.satuan_swalayan || '',
     satuan_grosir: item.satuan_grosir || '',
+    stok_gudang: item.stok_gudang || 0,
     stok_minimal: item.stok_minimal !== undefined ? item.stok_minimal : 10
   };
   isModalOpen.value = true;
@@ -340,6 +347,12 @@ const formatRupiah = (angka) => {
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-1">Harga Beli</label>
               <input type="number" v-model="formBarang.harga_beli" placeholder="0" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600">
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-1">Stok Gudang Pusat (Fisik)</label>
+              <input type="number" v-model="formBarang.stok_gudang" :disabled="user?.nama_role !== 'Admin Sistem' && user?.nama_role !== 'Admin Gudang'" placeholder="0" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed">
+              <span v-if="user?.nama_role !== 'Admin Sistem' && user?.nama_role !== 'Admin Gudang'" class="text-[10px] text-red-500 font-bold">Hanya Admin Gudang / Sistem yang dapat mengedit stok fisik gudang.</span>
             </div>
 
             <div>

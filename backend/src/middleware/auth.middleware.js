@@ -13,7 +13,7 @@ const verifyToken = (req, res, next) => {
   }
 
   if (!token) {
-    return res.status(403).json({ message: 'Token tidak ditemukan. Silakan login kembali.' });
+    return res.status(401).json({ message: 'Token tidak ditemukan. Silakan login kembali.' });
   }
 
   jwt.verify(token, process.env.JWT_SECRET || 'supersecretjwtkey_koperasi', (err, decoded) => {

@@ -11,7 +11,7 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+    if (error.response && error.response.status === 401) {
       console.warn('Unauthorized access. Please login again.');
       localStorage.removeItem('user');
       window.location.href = '/login'; 

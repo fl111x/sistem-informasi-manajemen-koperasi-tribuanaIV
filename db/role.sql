@@ -12,9 +12,12 @@ CREATE TABLE `role` (
   PRIMARY KEY (`id_role`)
 ) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- Dumping data for table role
-INSERT INTO `role` VALUES (1, 'Admin Koperasi', 'Administrator sistem koperasi');
+INSERT INTO `role` VALUES (1, 'Admin Sistem', 'Administrator sistem koperasi, berhak otorisasi void');
 INSERT INTO `role` VALUES (2, 'Kasir Swalayan', 'Pegawai kasir di area swalayan');
-INSERT INTO `role` VALUES (3, 'Kasir Grosir', 'Pegawai kasir di area swalayan');
+INSERT INTO `role` VALUES (3, 'Kasir Grosir', 'Pegawai kasir di area grosir');
+INSERT INTO `role` VALUES (4, 'Admin Pembelian', 'Pembuat PO Barang ke Supplier');
+INSERT INTO `role` VALUES (5, 'Admin Order', 'Memverifikasi bahwa barang PO sudah dipesan');
+INSERT INTO `role` VALUES (6, 'Admin Penjualan', 'Mutasi stok barang dari Gudang ke Toko');
+INSERT INTO `role` VALUES (7, 'Admin Gudang', 'Konfirmasi penerimaan fisik barang di Gudang');
 
 SET FOREIGN_KEY_CHECKS=1;
