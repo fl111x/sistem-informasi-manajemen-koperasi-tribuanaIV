@@ -394,7 +394,7 @@ const formatDate = (dateString) => {
                   <td class="px-6 py-3">
                     <span class="px-2 py-1 rounded text-[10px] font-bold" 
                       :class="{
-                        'bg-yellow-100 text-yellow-800': item.status === 'Menunggu',
+                        'bg-yellow-100 text-yellow-800': item.status === 'Belum di Order',
                         'bg-blue-100 text-blue-800': item.status === 'Dipesan',
                         'bg-green-100 text-green-800': item.status === 'Diterima',
                         'bg-emerald-100 text-emerald-800': item.status === 'Dimutasi',

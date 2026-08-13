@@ -14,7 +14,7 @@ const isLoading = ref(false);
 const errorMessage = ref('');
 
 // Tab State
-const activeTab = ref('Riwayat PO'); // 'Riwayat PO', 'Buat PO Baru', 'Hutang Supplier'
+const activeTab = ref('Riwayat PO'); // 'Riwayat PO', 'Buat PO Baru', 'Hutang Supplier', 'Status Stok'
 
 // State Form PO
 const formPO = ref({
@@ -206,6 +206,8 @@ const bukaMutasiModal = () => {
         jumlah_total: i.jumlah,
         jumlah_dimutasi_sebelumnya: i.jumlah_dimutasi || 0,
         jumlah_mutasi: 0,
+        stok_gudang: barangMaster.stok_gudang || 0,
+        stok_toko: poDetail.value.kategori === 'Swalayan' ? (barangMaster.stok_swalayan || 0) : (barangMaster.stok_grosir || 0),
         harga_beli: barangMaster.harga_beli || 0,
         harga_swalayan: barangMaster.harga_swalayan || 0,
         harga_grosir: barangMaster.harga_grosir || 0,
@@ -335,6 +337,20 @@ const totalBOPBaru = computed(() => {
   return formPO.value.items.reduce((total, item) => total + (item.jumlah * item.harga_satuan), 0);
 });
 
+const barangMenipis = computed(() => {
+  if (!daftarBarang.value) return [];
+  return daftarBarang.value.filter(b => {
+    const totalStok = (b.stok_gudang || 0) + (b.stok_swalayan || 0) + (b.stok_grosir || 0);
+    return totalStok <= (b.stok_minimal || 10);
+  });
+});
+
+const filterHanyaMenipis = ref(false);
+const filteredStokList = computed(() => {
+  if (filterHanyaMenipis.value) return barangMenipis.value;
+  return daftarBarang.value;
+});
+
 // Handle Simpan PO Baru
 const isSubmitting = ref(false);
 const simpanPOBaru = async () => {
@@ -400,7 +416,7 @@ const formatDate = (dateString) => {
     <!-- Header -->
     <header class="px-8 py-6 border-b border-slate-200 flex justify-between items-center flex-shrink-0 bg-white">
       <div>
-        <h1 class="text-2xl font-bold text-slate-800">Modul Gudang & Pembelian</h1>
+        <h1 class="text-2xl font-bold text-slate-800">{{ user?.nama_role === 'Admin Order' ? 'Daftar Order Barang' : 'Modul Gudang & Pembelian' }}</h1>
         <p class="text-sm text-slate-500 mt-1">Manajemen Purchase Order (PO) dan mutasi stok barang.</p>
       </div>
       <div class="flex bg-slate-100 p-1 rounded-lg">
@@ -417,6 +433,13 @@ const formatDate = (dateString) => {
           class="px-4 py-2 rounded-md text-sm transition-all"
         >
           Buat PO Baru
+        </button>
+        <button v-if="user?.nama_role === 'Admin Sistem' || user?.nama_role === 'Admin Pembelian'"
+          @click="activeTab = 'Status Stok'" 
+          :class="activeTab === 'Status Stok' ? 'bg-white shadow-sm font-bold text-slate-800' : 'text-slate-500 hover:text-slate-700'"
+          class="px-4 py-2 rounded-md text-sm transition-all flex gap-2 items-center"
+        >
+          Status Stok <span v-if="barangMenipis.length > 0" class="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">{{ barangMenipis.length }}</span>
         </button>
         <button v-if="user?.nama_role === 'Admin Sistem' || user?.nama_role === 'Admin Pembelian'"
           @click="activeTab = 'Hutang Supplier'" 
@@ -472,7 +495,7 @@ const formatDate = (dateString) => {
                     <span 
                       class="px-2 py-1 rounded text-[11px] font-bold"
                       :class="{
-                        'bg-yellow-100 text-yellow-700': po.status === 'Menunggu',
+                        'bg-yellow-100 text-yellow-700': po.status === 'Belum di Order',
                         'bg-orange-100 text-orange-700': po.status === 'Dipesan',
                         'bg-blue-100 text-blue-700': po.status === 'Diterima',
                         'bg-green-100 text-green-700': po.status === 'Dimutasi',
@@ -551,8 +574,9 @@ const formatDate = (dateString) => {
       </div>
 
       <!-- TAB: BUAT PO BARU -->
-      <div v-else class="max-w-4xl mx-auto h-full overflow-auto">
+      <div v-else-if="activeTab === 'Buat PO Baru'" class="max-w-4xl mx-auto h-full overflow-auto">
         <div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+          
           <div class="p-6 border-b border-slate-100 bg-slate-50">
             <h2 class="font-bold text-lg text-slate-800">Form Purchase Order Baru</h2>
             <p class="text-xs text-slate-500">Pilih supplier dan tambahkan daftar barang yang akan dipesan.</p>
@@ -604,7 +628,10 @@ const formatDate = (dateString) => {
                   </div>
                   <select v-model="barangPilihan" @change="hargaSatuan = (daftarBarang.find(b => b.id_barang === barangPilihan)?.harga_beli || 0)" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 bg-white text-sm">
                     <option disabled value="">-- Cari Barang --</option>
-                    <option v-for="b in daftarBarang" :key="b.id_barang" :value="b.id_barang">{{ b.nama_barang }} (Stok Saat Ini: {{ formPO.kategori === 'Swalayan' ? b.stok_swalayan : b.stok_grosir }})</option>
+                    <option v-for="b in daftarBarang" :key="b.id_barang" :value="b.id_barang">
+                      {{ b.nama_barang }} (Gudang: {{ b.stok_gudang || 0 }} | Toko: {{ formPO.kategori === 'Swalayan' ? (b.stok_swalayan || 0) : (b.stok_grosir || 0) }})
+                      {{ ((b.stok_gudang || 0) + (b.stok_swalayan || 0) + (b.stok_grosir || 0) <= (b.stok_minimal || 10)) ? ' ⚠️ BUTUH PO' : '' }}
+                    </option>
                   </select>
                 </div>
                 <div class="w-32">
@@ -674,6 +701,65 @@ const formatDate = (dateString) => {
               <span v-if="isSubmitting">Menyimpan...</span>
               <span v-else>Simpan Purchase Order</span>
             </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: STATUS STOK -->
+      <div v-else class="h-full">
+        <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden h-full flex flex-col">
+          <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <h2 class="font-bold text-slate-700">Daftar Status Stok Barang</h2>
+            <div class="flex items-center gap-4">
+              <label class="text-sm font-semibold text-slate-600 flex items-center gap-2 bg-white px-3 py-1.5 border border-slate-300 rounded-md cursor-pointer hover:bg-slate-50">
+                <input type="checkbox" v-model="filterHanyaMenipis" class="rounded text-blue-600 w-4 h-4"> Tampilkan Hanya Stok Menipis
+              </label>
+              <button @click="fetchData" class="text-sm text-blue-600 font-semibold hover:underline flex items-center gap-1">
+                Segarkan
+              </button>
+            </div>
+          </div>
+          <div class="flex-1 overflow-auto">
+            <table class="w-full text-left text-sm text-slate-600">
+              <thead class="bg-slate-100 text-slate-600 uppercase font-bold text-[11px] tracking-wider border-b border-slate-200 sticky top-0 z-10">
+                <tr>
+                  <th class="px-5 py-4">Nama Barang</th>
+                  <th class="px-5 py-4 text-center border-x border-slate-200 bg-slate-200/50">Stok Gudang Utama</th>
+                  <th class="px-5 py-4 text-center">Stok Swalayan</th>
+                  <th class="px-5 py-4 text-center">Stok Grosir</th>
+                  <th class="px-5 py-4 text-center">Total Stok</th>
+                  <th class="px-5 py-4 text-center border-l border-slate-200">Batas Minimum</th>
+                  <th class="px-5 py-4 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="isLoading">
+                  <td colspan="7" class="px-5 py-12 text-center text-slate-400">Memuat data...</td>
+                </tr>
+                <tr v-else-if="filteredStokList.length === 0">
+                  <td colspan="7" class="px-5 py-12 text-center text-slate-400">Tidak ada data stok yang sesuai.</td>
+                </tr>
+                <tr v-else v-for="b in filteredStokList" :key="b.id_barang" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                  <td class="px-5 py-3 font-medium text-slate-800">{{ b.nama_barang }}</td>
+                  <td class="px-5 py-3 text-center border-x border-slate-100 font-semibold text-slate-700 bg-slate-50/50">{{ b.stok_gudang || 0 }}</td>
+                  <td class="px-5 py-3 text-center font-semibold text-blue-600">{{ b.stok_swalayan || 0 }}</td>
+                  <td class="px-5 py-3 text-center font-semibold text-blue-600">{{ b.stok_grosir || 0 }}</td>
+                  <td class="px-5 py-3 text-center font-bold text-slate-800 bg-slate-50">{{ (b.stok_gudang || 0) + (b.stok_swalayan || 0) + (b.stok_grosir || 0) }}</td>
+                  <td class="px-5 py-3 text-center text-slate-500 font-semibold border-l border-slate-100">{{ b.stok_minimal || 10 }}</td>
+                  <td class="px-5 py-3 text-center">
+                    <span 
+                      v-if="((b.stok_gudang || 0) + (b.stok_swalayan || 0) + (b.stok_grosir || 0)) <= (b.stok_minimal || 10)" 
+                      class="px-2 py-1.5 rounded text-[11px] font-bold bg-red-100 text-red-700 shadow-sm"
+                    >
+                      Butuh PO
+                    </span>
+                    <span v-else class="px-2 py-1.5 rounded text-[11px] font-bold bg-green-100 text-green-700 shadow-sm">
+                      Aman
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -790,7 +876,7 @@ const formatDate = (dateString) => {
           
           <template v-if="poDetail?.status !== 'Dimutasi' && poDetail?.status !== 'Batal'">
             
-            <button v-if="poDetail?.status === 'Menunggu' && (user?.nama_role === 'Admin Sistem' || user?.nama_role === 'Admin Order')" 
+            <button v-if="poDetail?.status === 'Belum di Order' && (user?.nama_role === 'Admin Sistem' || user?.nama_role === 'Admin Order')"
                     @click="updateStatusPO(poDetail.id_pembelian, 'Dipesan')" class="px-4 py-2 text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-md shadow-sm">
               Tandai Dipesan (Admin Order)
             </button>
@@ -932,8 +1018,9 @@ const formatDate = (dateString) => {
                <div class="bg-slate-100 p-3 flex flex-wrap justify-between items-center gap-4 border-b border-slate-200">
                  <div class="font-bold text-slate-800">{{ item.nama_barang }}</div>
                  <div class="flex items-center gap-4 flex-wrap">
-                   <div class="text-sm text-slate-600">Pesan: <span class="font-bold">{{ item.jumlah_total }}</span></div>
-                   <div class="text-sm text-slate-600">Telah Mutasi: <span class="font-bold">{{ item.jumlah_dimutasi_sebelumnya }}</span></div>
+                   <div class="text-sm text-slate-600">Stok Gudang Utama: <span class="font-bold">{{ item.stok_gudang }}</span></div>
+                   <div class="text-sm text-slate-600">Stok Gudang Toko: <span class="font-bold">{{ item.stok_toko }}</span></div>
+                   <div class="text-xs text-slate-500">(Sisa PO: {{ item.jumlah_total - item.jumlah_dimutasi_sebelumnya }})</div>
                    <div class="flex items-center gap-2 bg-white px-2 py-1 rounded shadow-sm border border-slate-300">
                      <label class="text-sm font-bold text-blue-700">Mutasi Saat Ini:</label>
                      <input type="number" v-model="item.jumlah_mutasi" min="0" :max="item.jumlah_total - item.jumlah_dimutasi_sebelumnya" class="w-20 border-b border-slate-400 focus:border-blue-600 focus:outline-none text-center font-bold">

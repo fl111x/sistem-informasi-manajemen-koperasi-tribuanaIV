@@ -218,6 +218,14 @@ const dataDitampilkan = computed(() => {
   });
 });
 
+const stokTokoMenipis = computed(() => {
+  return daftarBarang.value.filter(b => {
+    const butuhSwalayan = (b.stok_swalayan || 0) <= 5;
+    const butuhGrosir = (b.stok_grosir || 0) <= 5;
+    return (butuhSwalayan || butuhGrosir) && (b.stok_gudang > 0);
+  });
+});
+
 const formatRupiah = (angka) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
 };
@@ -238,6 +246,23 @@ const formatRupiah = (angka) => {
         Tambah Barang
       </button>
     </header>
+
+    <!-- ALERT STOK TOKO MENIPIS -->
+    <div v-if="stokTokoMenipis.length > 0" class="px-8 py-4 bg-orange-50 border-b border-orange-200 flex-shrink-0">
+      <div class="flex items-center gap-2 text-orange-800 font-bold mb-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        Pemberitahuan: Stok Toko Menipis (Perlu Mutasi)
+      </div>
+      <p class="text-sm text-orange-700 mb-3">Beberapa barang memiliki stok menipis (≤ 5) di rak Swalayan/Grosir, sementara stok di Gudang Utama masih tersedia. Silakan lakukan mutasi.</p>
+      <div class="flex flex-wrap gap-2">
+        <button v-for="b in stokTokoMenipis.slice(0, 15)" :key="b.id_barang" @click="bukaModalMutasi(b)" class="bg-white border border-orange-300 text-orange-700 hover:bg-orange-100 text-xs px-2 py-1.5 rounded shadow-sm font-semibold transition-colors">
+          {{ b.nama_barang }} (Sisa: Swl {{ b.stok_swalayan || 0 }} | Grs {{ b.stok_grosir || 0 }})
+        </button>
+        <span v-if="stokTokoMenipis.length > 15" class="text-xs text-orange-700 font-bold mt-2">...dan {{ stokTokoMenipis.length - 15 }} barang lainnya</span>
+      </div>
+    </div>
 
     <!-- Toolbar Pencarian & Filter -->
     <div class="px-8 py-4 border-b border-slate-100 flex gap-4 bg-slate-50 flex-shrink-0">
@@ -290,8 +315,16 @@ const formatRupiah = (angka) => {
               <td class="px-5 py-3 text-right text-slate-700">{{ formatRupiah(item.harga_swalayan) }}</td>
               <td class="px-5 py-3 text-right text-slate-700">{{ formatRupiah(item.harga_grosir) }}</td>
               <td class="px-5 py-3 text-center text-slate-700 font-bold bg-blue-50">{{ item.stok_gudang || 0 }}</td>
-              <td class="px-5 py-3 text-center text-slate-700">{{ item.stok_swalayan }} {{ item.satuan_swalayan }}</td>
-              <td class="px-5 py-3 text-center text-slate-700">{{ item.stok_grosir }} {{ item.satuan_grosir }}</td>
+              <td class="px-5 py-3 text-center">
+                <span :class="(item.stok_swalayan || 0) <= 5 ? 'text-red-600 font-bold bg-red-50 px-2 py-1 rounded border border-red-200' : 'text-slate-700'">
+                  {{ item.stok_swalayan || 0 }} {{ item.satuan_swalayan }}
+                </span>
+              </td>
+              <td class="px-5 py-3 text-center">
+                <span :class="(item.stok_grosir || 0) <= 5 ? 'text-red-600 font-bold bg-red-50 px-2 py-1 rounded border border-red-200' : 'text-slate-700'">
+                  {{ item.stok_grosir || 0 }} {{ item.satuan_grosir }}
+                </span>
+              </td>
               <td class="px-5 py-3 text-center">
                 <div class="flex justify-center gap-2">
                   <button @click="bukaModalMutasi(item)" class="text-slate-400 hover:text-green-600 bg-slate-100 hover:bg-green-50 p-1.5 rounded transition-colors" title="Mutasi Stok">

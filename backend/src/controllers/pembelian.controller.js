@@ -67,7 +67,7 @@ exports.createPembelian = async (req, res) => {
 
     const [pembelianResult] = await connection.execute(
       'INSERT INTO Pembelian (kategori, status, id_supplier, id_pengguna, total_biaya, metode_pembayaran, jatuh_tempo, status_pembayaran) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [kategori, 'Menunggu', id_supplier, id_pengguna, total_biaya, metode_pembayaran || 'Cash', jatuh_tempo || null, status_pembayaran]
+      [kategori, 'Belum di Order', id_supplier, id_pengguna, total_biaya, metode_pembayaran || 'Cash', jatuh_tempo || null, status_pembayaran]
     );
     const id_pembelian = pembelianResult.insertId;
 
@@ -142,7 +142,7 @@ exports.updateStatus = async (req, res) => {
     const { status: new_status, catatan_gudang } = req.body;
     const id_pembelian = req.params.id;
     
-    if (!['Menunggu', 'Dipesan', 'Diterima', 'Dimutasi', 'Ditunda', 'Batal'].includes(new_status)) {
+    if (!['Belum di Order', 'Dipesan', 'Diterima', 'Dimutasi', 'Ditunda', 'Batal'].includes(new_status)) {
        return res.status(400).json({ message: 'Status tidak valid' });
     }
 

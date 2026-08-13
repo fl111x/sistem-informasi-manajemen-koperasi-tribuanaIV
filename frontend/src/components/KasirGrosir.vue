@@ -99,6 +99,10 @@ const sinkronisasiDiskon = () => {
 };
 
 const tambahKeFaktur = (item) => {
+  if (Number(item.harga_grosir) <= 0) {
+    return tampilkanNotif('Gagal', 'Harga grosir barang ini belum diset. Silakan hubungi admin.');
+  }
+
   const barangAda = keranjang.value.find(b => b.id_barang === item.id_barang);
   
   if (barangAda) {
@@ -291,7 +295,8 @@ const prosesTransaksi = async () => {
                   <span class="text-xs text-slate-500 ml-2">({{ item.satuan_grosir || '-' }})</span>
                   <span class="text-xs font-bold text-blue-600 ml-2">Stok: {{ item.stok_grosir || 0 }}</span>
                 </div>
-                <span class="text-sm font-bold text-slate-600">{{ formatRupiah(item.harga_grosir) }}</span>
+                <span v-if="Number(item.harga_grosir) > 0" class="text-sm font-bold text-slate-600">{{ formatRupiah(item.harga_grosir) }}</span>
+                <span v-else class="text-xs font-bold text-red-500 italic">Harga belum diset</span>
               </li>
             </ul>
             <div v-else class="px-4 py-3 text-sm text-slate-500 bg-slate-50 text-center">
