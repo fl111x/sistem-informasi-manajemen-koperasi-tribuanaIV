@@ -5,7 +5,7 @@ const createTransaksi = async (req, res) => {
   const connection = await db.getConnection();
   try {
     const { jenis_transaksi, total_bayar, items, nrp } = req.body;
-    
+
     if (!jenis_transaksi || !items || items.length === 0) {
       return res.status(400).json({ message: 'Jenis transaksi dan item wajib diisi' });
     }
@@ -123,7 +123,7 @@ const getTransaksi = async (req, res) => {
 const getTransaksiById = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Get header
     const [transaksiRows] = await db.execute(`
       SELECT t.*, p.nama_pengguna as nama_kasir, a.nama as nama_anggota 
@@ -173,28 +173,28 @@ const voidTransaksi = async (req, res) => {
     const transaksi = transaksiRows[0];
 
     if (transaksi.total_bayar == 0) {
-       throw new Error('Transaksi ini sudah dibatalkan sebelumnya');
+      throw new Error('Transaksi ini sudah dibatalkan sebelumnya');
     }
 
     // Catat log void
-    await connection.execute(
-      'INSERT INTO void_log (id_kasir, id_otorisator, alasan, nominal_batal) VALUES (?, ?, ?, ?)',
-      [transaksi.id_pengguna, otorisator.id_pengguna, alasan, transaksi.total_bayar]
-    );
+    // await connection.execute(
+    //   'INSERT INTO void_log (id_kasir, id_otorisator, alasan, nominal_batal) VALUES (?, ?, ?, ?)',
+    //   [transaksi.id_pengguna, otorisator.id_pengguna, alasan, transaksi.total_bayar]
+    // );
 
     // Kembalikan stok
     const [details] = await connection.execute('SELECT * FROM detail_transaksi WHERE id_transaksi = ?', [id]);
     for (const item of details) {
-       if (transaksi.jenis_transaksi === 'Swalayan') {
-          await connection.execute('UPDATE Barang SET stok_swalayan = stok_swalayan + ? WHERE id_barang = ?', [item.quantity_barang, item.id_barang]);
-       } else if (transaksi.jenis_transaksi === 'Grosir') {
-          await connection.execute('UPDATE Barang SET stok_grosir = stok_grosir + ? WHERE id_barang = ?', [item.quantity_barang, item.id_barang]);
-       }
+      if (transaksi.jenis_transaksi === 'Swalayan') {
+        await connection.execute('UPDATE Barang SET stok_swalayan = stok_swalayan + ? WHERE id_barang = ?', [item.quantity_barang, item.id_barang]);
+      } else if (transaksi.jenis_transaksi === 'Grosir') {
+        await connection.execute('UPDATE Barang SET stok_grosir = stok_grosir + ? WHERE id_barang = ?', [item.quantity_barang, item.id_barang]);
+      }
     }
 
     // Nolkan transaksi dan keuntungan
     await connection.execute('UPDATE Transaksi SET total_bayar = 0, total_keuntungan = 0 WHERE id_transaksi = ?', [id]);
-    
+
     // Jurnal pembalik
     await connection.execute(
       `INSERT INTO Jurnal_Akuntansi (keterangan, akun_debit, akun_kredit, nominal, id_transaksi_referensi, jenis_referensi) 
