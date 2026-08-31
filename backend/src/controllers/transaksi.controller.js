@@ -4,7 +4,8 @@ const db = require('../config/db');
 const createTransaksi = async (req, res) => {
   const connection = await db.getConnection();
   try {
-    const { jenis_transaksi, total_bayar, items, nrp } = req.body;
+    const { jenis_transaksi, total_bayar, items, nrp, metode_pembayaran } = req.body;
+    const paymentMethod = metode_pembayaran || 'Cash';
 
     if (!jenis_transaksi || !items || items.length === 0) {
       return res.status(400).json({ message: 'Jenis transaksi dan item wajib diisi' });
@@ -21,8 +22,8 @@ const createTransaksi = async (req, res) => {
     const waktu_transaksi = new Date();
 
     const [transaksiResult] = await connection.execute(
-      'INSERT INTO Transaksi (waktu_transaksi, total_bayar, jenis_transaksi, id_pengguna, nrp) VALUES (?, ?, ?, ?, ?)',
-      [waktu_transaksi, total_bayar || 0, jenis_transaksi, id_pengguna, nrp || null]
+      'INSERT INTO Transaksi (waktu_transaksi, total_bayar, jenis_transaksi, id_pengguna, nrp, metode_pembayaran) VALUES (?, ?, ?, ?, ?, ?)',
+      [waktu_transaksi, total_bayar || 0, jenis_transaksi, id_pengguna, nrp || null, paymentMethod]
     );
 
     const id_transaksi = transaksiResult.insertId;

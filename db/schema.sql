@@ -124,6 +124,7 @@ CREATE TABLE `transaksi` (
   `id_transaksi` int NOT NULL AUTO_INCREMENT,
   `waktu_transaksi` datetime NOT NULL,
   `total_bayar` decimal(15,2) DEFAULT '0.00',
+  `metode_pembayaran` enum('Cash','Kredit') DEFAULT 'Cash',
   `jenis_transaksi` varchar(50) DEFAULT NULL,
   `id_pengguna` int DEFAULT NULL,
   `nrp` varchar(50) DEFAULT NULL,
