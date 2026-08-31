@@ -259,52 +259,97 @@ const tahunanChartData = computed(() => {
 // ------------------------------------
 // STATE LAPORAN SHU ANGGOTA
 // ------------------------------------
-// Data Simulasi SHU
-const totalLaba = ref(0);
-const persentaseSHUAnggota = ref(40); // misal 40% dari Laba diturunkan sbg SHU Anggota
-const totalBelanjaSeluruhAnggota = ref(1); 
+// Parameter SHU (Sesuai Foto Requirement)
+const totalLabaSHU = ref(494582400); 
+const porsiSimpanan = ref(50); // Persentase
+const porsiBelanja = ref(25); // Persentase
+const porsiBagiRata = ref(25); // Persentase
+
 const simulasiAnggota = ref([]);
 const isLoadingSHU = ref(false);
-const riwayatBelanjaAll = ref([]); // Untuk kalkulasi SHU
+const dataAnggotaAll = ref([]);
+const riwayatBelanjaAll = ref([]);
 
-const fetchAllTransaksiForSHU = async () => {
+const fetchDataSHU = async () => {
   try {
-    const res = await api.get('/transaksi');
-    riwayatBelanjaAll.value = res.data;
+    const [resAnggota, resTrx] = await Promise.all([
+      api.get('/anggota'),
+      api.get('/transaksi')
+    ]);
+    dataAnggotaAll.value = resAnggota.data;
+    riwayatBelanjaAll.value = resTrx.data;
   } catch (error) {
-    console.error('Error fetching transaksi for SHU:', error);
+    console.error('Error fetching SHU data:', error);
   }
 };
 
 const hitungSimulasiSHU = () => {
   isLoadingSHU.value = true;
-  const alokasiSHU = totalLaba.value * (persentaseSHUAnggota.value / 100);
   
-  const rekap = {};
-  let totalBelanjaSemua = 0;
+  // 1. Hitung Total Alokasi (Jumlah Jasa)
+  const totalSHU = totalLabaSHU.value;
+  const jasaSimpananTotal = totalSHU * (porsiSimpanan.value / 100);
+  const jasaBelanjaTotal = totalSHU * (porsiBelanja.value / 100);
+  const jasaBagiRataTotal = totalSHU * (porsiBagiRata.value / 100);
   
+  // 2. Agregasi Transaksi Belanja
+  const mapBelanja = {};
+  let jumlahPembelianAnggota = 0; // Total seluruh belanjaan
   riwayatBelanjaAll.value.forEach(trx => {
     if (trx.nrp && parseFloat(trx.total_bayar) > 0) {
       const bayar = parseFloat(trx.total_bayar);
-      if (!rekap[trx.nrp]) {
-        rekap[trx.nrp] = { nrp: trx.nrp, nama: trx.nama_anggota || 'Anggota', total_belanja: 0 };
-      }
-      rekap[trx.nrp].total_belanja += bayar;
-      totalBelanjaSemua += bayar;
+      mapBelanja[trx.nrp] = (mapBelanja[trx.nrp] || 0) + bayar;
+      jumlahPembelianAnggota += bayar;
     }
   });
 
-  totalBelanjaSeluruhAnggota.value = totalBelanjaSemua > 0 ? totalBelanjaSemua : 1;
+  // 3. Persiapkan Anggota Aktif dan Simpanan
+  const activeMembers = dataAnggotaAll.value.filter(a => a.is_active);
+  const jumlahAnggotaKoperasi = activeMembers.length || 1;
+  let jumlahSimpananAnggota = 0;
 
-  simulasiAnggota.value = Object.values(rekap).map(anggota => {
-    const poinSHU = (anggota.total_belanja / totalBelanjaSeluruhAnggota.value) * alokasiSHU;
+  activeMembers.forEach(anggota => {
+    // Karena kolom simpanan belum ada di DB, kita mock Rp 925.000 untuk simulasi sesuai foto
+    anggota.simpanan = anggota.simpanan || 925000; 
+    jumlahSimpananAnggota += anggota.simpanan;
+  });
+
+  // 4. Hitung Jasa Bagi Rata (Sama untuk semua)
+  const jasaBagiRataPerOrang = jasaBagiRataTotal / jumlahAnggotaKoperasi;
+
+  // 5. Kalkulasi Akhir per Anggota
+  simulasiAnggota.value = activeMembers.map(anggota => {
+    const jumlahSimpanan = anggota.simpanan;
+    const jumlahBelanjaan = mapBelanja[anggota.nrp] || 0;
+    
+    // Rumus: (Jumlah Simpanan x Jasa Simpanan Anggota) / Jumlah Simpanan Anggota
+    const shuSimpanan = jumlahSimpananAnggota > 0 
+      ? (jumlahSimpanan * jasaSimpananTotal) / jumlahSimpananAnggota 
+      : 0;
+      
+    // Rumus: (Jumlah Belanjaan x Jasa Belanja Anggota) / Jumlah Pembelian Anggota
+    const shuBelanja = jumlahPembelianAnggota > 0 
+      ? (jumlahBelanjaan * jasaBelanjaTotal) / jumlahPembelianAnggota 
+      : 0;
+      
+    const shuBagiRata = jasaBagiRataPerOrang;
+    
+    // TOTAL SHU = Jasa Simpanan + Jasa Belanjaan + Jasa Bagi Rata
+    const jumlahJasa = shuSimpanan + shuBelanja + shuBagiRata;
+
     return {
-      ...anggota,
-      estimasi_shu: poinSHU
+      nrp: anggota.nrp,
+      nama: anggota.nama,
+      simpanan: jumlahSimpanan,
+      belanja: jumlahBelanjaan,
+      shu_simpanan: shuSimpanan,
+      shu_belanja: shuBelanja,
+      shu_bagirata: shuBagiRata,
+      total_diterima: jumlahJasa
     };
   });
   
-  simulasiAnggota.value.sort((a, b) => b.estimasi_shu - a.estimasi_shu);
+  simulasiAnggota.value.sort((a, b) => b.total_diterima - a.total_diterima);
   isLoadingSHU.value = false;
 };
 
@@ -322,7 +367,7 @@ onMounted(() => {
   fetchLaporanHarian();
   fetchLaporanBulanan();
   fetchLaporanTahunan();
-  fetchAllTransaksiForSHU();
+  fetchDataSHU();
 });
 
 </script>
@@ -657,23 +702,31 @@ onMounted(() => {
           </div>
           <p class="text-blue-100 text-sm mb-6">Lacak dan hitung pembagian Sisa Hasil Usaha (SHU) tiap anggota berdasarkan persentase partisipasi belanja mereka di koperasi.</p>
           
-          <div class="grid grid-cols-2 gap-6 bg-white/10 p-5 rounded-lg border border-white/20 backdrop-blur-sm">
-            <div>
-              <label class="block text-xs font-semibold text-blue-100 mb-1">Total Laba Koperasi (Rp)</label>
-              <input type="number" v-model="totalLaba" class="w-full bg-white text-slate-800 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 font-bold text-lg">
-              <p class="text-[10px] text-blue-200 mt-1">*Masukkan laba bersih dari total keuntungan penjualan</p>
+          <div class="grid grid-cols-4 gap-4 bg-white/10 p-5 rounded-lg border border-white/20 backdrop-blur-sm">
+            <div class="col-span-4 mb-2">
+              <label class="block text-xs font-semibold text-blue-100 mb-1">Total Alokasi SHU Anggota (Rp)</label>
+              <input type="number" v-model="totalLabaSHU" class="w-full bg-white text-slate-800 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 font-bold text-lg">
             </div>
             <div>
-              <label class="block text-xs font-semibold text-blue-100 mb-1">Persentase SHU Untuk Anggota (%)</label>
-              <div class="flex items-center gap-2">
-                <input type="number" v-model="persentaseSHUAnggota" min="0" max="100" class="w-24 bg-white text-slate-800 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 font-bold text-lg">
-                <span class="font-bold">% dari Laba Bersih</span>
-              </div>
+              <label class="block text-xs font-semibold text-blue-100 mb-1">Porsi Jasa Simpanan (%)</label>
+              <input type="number" v-model="porsiSimpanan" min="0" max="100" class="w-full bg-white text-slate-800 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 font-bold">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-blue-100 mb-1">Porsi Jasa Belanjaan (%)</label>
+              <input type="number" v-model="porsiBelanja" min="0" max="100" class="w-full bg-white text-slate-800 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 font-bold">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-blue-100 mb-1">Porsi Jasa Bagi Rata (%)</label>
+              <input type="number" v-model="porsiBagiRata" min="0" max="100" class="w-full bg-white text-slate-800 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 font-bold">
+            </div>
+            <div class="flex flex-col justify-end">
+              <div v-if="(porsiSimpanan + porsiBelanja + porsiBagiRata) !== 100" class="text-xs text-red-200 font-bold mb-2">Total harus 100%!</div>
+              <div v-else class="text-xs text-green-200 font-bold mb-2">Porsi Valid (100%)</div>
             </div>
           </div>
           
           <div class="mt-4 flex justify-end">
-            <button @click="hitungSimulasiSHU" class="bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-bold py-2 px-6 rounded-md transition-colors shadow-sm">
+            <button @click="hitungSimulasiSHU" :disabled="(porsiSimpanan + porsiBelanja + porsiBagiRata) !== 100" class="bg-yellow-400 hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed text-yellow-900 font-bold py-2 px-6 rounded-md transition-colors shadow-sm">
               Hitung / Perbarui Alokasi SHU
             </button>
           </div>
@@ -682,8 +735,8 @@ onMounted(() => {
         <div v-if="simulasiAnggota.length > 0" class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
           <div class="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
             <div>
-              <h3 class="font-bold text-lg text-slate-800">Daftar Penerima SHU Anggota</h3>
-              <p class="text-xs text-slate-500">Total Alokasi SHU Anggota: <b>{{ formatRupiah(totalLaba * (persentaseSHUAnggota / 100)) }}</b></p>
+              <h3 class="font-bold text-lg text-slate-800">Daftar Penerima SHU Anggota (Sesuai Formula Primer)</h3>
+              <p class="text-xs text-slate-500">Rumus: Jumlah Jasa = Jasa Simpanan + Jasa Belanjaan + Jasa Bagi Rata</p>
             </div>
           </div>
           
@@ -691,20 +744,31 @@ onMounted(() => {
             <table class="w-full text-left text-sm text-slate-600">
               <thead class="bg-slate-100 text-slate-700 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200 sticky top-0 z-10">
                 <tr>
-                  <th class="px-6 py-4 w-16 text-center">No</th>
-                  <th class="px-6 py-4">NRP</th>
-                  <th class="px-6 py-4">Nama Anggota</th>
-                  <th class="px-6 py-4 text-right">Total Belanja (Partisipasi)</th>
-                  <th class="px-6 py-4 text-right">SHU Diterima</th>
+                  <th class="px-4 py-3 w-12 text-center">No</th>
+                  <th class="px-4 py-3">Nama Anggota</th>
+                  <th class="px-4 py-3 text-right">Data Simpanan</th>
+                  <th class="px-4 py-3 text-right border-r border-slate-200">Data Belanja</th>
+                  <th class="px-4 py-3 text-right bg-blue-50/50">Jasa Simpanan</th>
+                  <th class="px-4 py-3 text-right bg-blue-50/50">Jasa Belanjaan</th>
+                  <th class="px-4 py-3 text-right bg-blue-50/50 border-r border-slate-200">Jasa Bagi Rata</th>
+                  <th class="px-4 py-3 text-right bg-green-50 text-green-700">Total SHU (Jumlah Jasa)</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(anggota, index) in simulasiAnggota" :key="anggota.nrp" class="border-b border-slate-100 hover:bg-slate-50">
-                  <td class="px-6 py-3 text-center text-slate-400 font-bold">{{ index + 1 }}</td>
-                  <td class="px-6 py-3 font-medium text-slate-800">{{ anggota.nrp }}</td>
-                  <td class="px-6 py-3 font-medium text-slate-800">{{ anggota.nama }}</td>
-                  <td class="px-6 py-3 text-right text-slate-700">{{ formatRupiah(anggota.total_belanja) }}</td>
-                  <td class="px-6 py-3 text-right font-bold text-green-600 bg-green-50/50">{{ formatRupiah(anggota.estimasi_shu) }}</td>
+                  <td class="px-4 py-3 text-center text-slate-400 font-bold">{{ index + 1 }}</td>
+                  <td class="px-4 py-3 font-medium text-slate-800">
+                    <div>{{ anggota.nama }}</div>
+                    <div class="text-[10px] text-slate-400">NRP: {{ anggota.nrp }}</div>
+                  </td>
+                  <td class="px-4 py-3 text-right text-slate-500 text-xs">{{ formatRupiah(anggota.simpanan) }}</td>
+                  <td class="px-4 py-3 text-right text-slate-500 text-xs border-r border-slate-100">{{ formatRupiah(anggota.belanja) }}</td>
+                  
+                  <td class="px-4 py-3 text-right font-semibold text-blue-600">{{ formatRupiah(anggota.shu_simpanan) }}</td>
+                  <td class="px-4 py-3 text-right font-semibold text-blue-600">{{ formatRupiah(anggota.shu_belanja) }}</td>
+                  <td class="px-4 py-3 text-right font-semibold text-blue-600 border-r border-slate-100">{{ formatRupiah(anggota.shu_bagirata) }}</td>
+                  
+                  <td class="px-4 py-3 text-right font-bold text-green-700 bg-green-50/30 text-[15px]">{{ formatRupiah(anggota.total_diterima) }}</td>
                 </tr>
               </tbody>
             </table>
