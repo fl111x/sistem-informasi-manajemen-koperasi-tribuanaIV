@@ -2,32 +2,47 @@
 import { ref, onMounted, computed } from 'vue';
 import api from '../services/api';
 
-const activeTab = ref('Laporan Penjualan'); // 'Laporan Penjualan', 'Laporan Pembelian', 'Laporan SHU Anggota'
+const activeTab = ref('Laporan Harian'); // 'Laporan Harian', 'Laporan Bulanan', 'Laporan Tahunan', 'Laporan SHU Anggota'
 
-// Data Laporan Penjualan
-const riwayatBelanja = ref([]);
-const searchQuery = ref('');
-const bulanFilter = ref(new Date().getMonth() + 1); 
-const tahunFilter = ref(new Date().getFullYear());
-const isLoadingBelanja = ref(false);
+// Format helper
+const formatRupiah = (angka) => {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
+};
 
-// Data Laporan Pembelian
-const laporanPembelian = ref([]);
-const isLoadingPembelian = ref(false);
-
-// Data Simulasi SHU
-const totalLaba = ref(0);
-const persentaseSHUAnggota = ref(40); // misal 40% dari Laba diturunkan sbg SHU Anggota
-const totalBelanjaSeluruhAnggota = ref(1); // Mencegah division by zero
-const simulasiAnggota = ref([]);
-const isLoadingSHU = ref(false);
+const formatDate = (dateString) => {
+  if (!dateString) return '-';
+  const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+  return new Date(dateString).toLocaleDateString('id-ID', options);
+};
 
 const months = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
 ];
 
-// Void Transaksi
+// ------------------------------------
+// STATE LAPORAN HARIAN
+// ------------------------------------
+const tanggalFilter = ref(new Date().toISOString().split('T')[0]);
+const isLoadingHarian = ref(false);
+const harianData = ref({
+  ringkasan: { penjualan: {}, pembelian: {} },
+  rincian_transaksi: []
+});
+
+const fetchLaporanHarian = async () => {
+  isLoadingHarian.value = true;
+  try {
+    const res = await api.get(`/laporan/harian?tanggal=${tanggalFilter.value}`);
+    harianData.value = res.data;
+  } catch (err) {
+    console.error('Error fetching harian:', err);
+  } finally {
+    isLoadingHarian.value = false;
+  }
+};
+
+// Void Transaksi (Di Laporan Harian)
 const isVoidModalOpen = ref(false);
 const transaksiToVoid = ref(null);
 const isSubmittingVoid = ref(false);
@@ -36,19 +51,17 @@ const bukaModalVoid = (trx) => {
   transaksiToVoid.value = trx;
   isVoidModalOpen.value = true;
 };
-
 const tutupModalVoid = () => {
   isVoidModalOpen.value = false;
   transaksiToVoid.value = null;
 };
-
 const submitVoid = async () => {
   try {
     isSubmittingVoid.value = true;
     await api.post(`/transaksi/${transaksiToVoid.value.id_transaksi}/void`);
     alert('Transaksi berhasil dibatalkan (Void).');
     tutupModalVoid();
-    await fetchLaporanBelanja();
+    await fetchLaporanHarian();
   } catch (error) {
     console.error('Error void transaksi:', error);
     alert(error.response?.data?.message || 'Gagal melakukan void transaksi.');
@@ -57,111 +70,122 @@ const submitVoid = async () => {
   }
 };
 
-const fetchLaporanBelanja = async () => {
-  try {
-    isLoadingBelanja.value = true;
-    
-    const response = await api.get('/transaksi');
-    
-    // Map data
-    const mappedData = response.data.map(trx => ({
-      id_transaksi: trx.id_transaksi,
-      nrp: trx.nrp,
-      nama_anggota: trx.nama_anggota || 'Bukan Anggota',
-      waktu: trx.waktu_transaksi,
-      jenis_transaksi: trx.jenis_transaksi,
-      total_belanja: parseFloat(trx.total_bayar),
-      total_keuntungan: parseFloat(trx.total_keuntungan || 0)
-    }));
-    
-    // Filter berdasarkan bulan dan tahun
-    const filteredData = mappedData.filter(trx => {
-      const d = new Date(trx.waktu);
-      return d.getMonth() + 1 === parseInt(bulanFilter.value) && d.getFullYear() === parseInt(tahunFilter.value);
-    });
+// ------------------------------------
+// STATE LAPORAN BULANAN
+// ------------------------------------
+const bulanFilter = ref(new Date().getMonth() + 1); 
+const tahunBulanFilter = ref(new Date().getFullYear());
+const isLoadingBulanan = ref(false);
+const bulananData = ref({ penjualan: [], pembelian: [] });
 
-    riwayatBelanja.value = filteredData;
-  } catch (error) {
-    console.error('Gagal mengambil laporan transaksi:', error);
+const fetchLaporanBulanan = async () => {
+  isLoadingBulanan.value = true;
+  try {
+    const res = await api.get(`/laporan/bulanan?bulan=${bulanFilter.value}&tahun=${tahunBulanFilter.value}`);
+    bulananData.value = res.data;
+  } catch (err) {
+    console.error('Error fetching bulanan:', err);
   } finally {
-    isLoadingBelanja.value = false;
+    isLoadingBulanan.value = false;
   }
 };
 
-const fetchLaporanPembelian = async () => {
-  try {
-    isLoadingPembelian.value = true;
-    const response = await api.get('/pembelian');
+// Combine data for daily rows (1 to end of month)
+const rekapHarianBulanan = computed(() => {
+  const year = tahunBulanFilter.value;
+  const month = bulanFilter.value;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  
+  const rekap = [];
+  for (let i = 1; i <= daysInMonth; i++) {
+    // Format YYYY-MM-DD
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+    const jual = bulananData.value.penjualan.find(p => p.tanggal.startsWith(dateStr)) || {};
+    const beli = bulananData.value.pembelian.find(p => p.tanggal.startsWith(dateStr)) || {};
     
-    // Filter berdasarkan bulan dan tahun
-    const filteredData = response.data.filter(po => {
-      const d = new Date(po.waktu_pembelian);
-      return d.getMonth() + 1 === parseInt(bulanFilter.value) && d.getFullYear() === parseInt(tahunFilter.value);
+    rekap.push({
+      tanggal: dateStr,
+      omzet: parseFloat(jual.total_omzet || 0),
+      cash_in: parseFloat(jual.total_cash || 0),
+      kredit_in: parseFloat(jual.total_kredit || 0),
+      pengeluaran: parseFloat(beli.total_pengeluaran || 0),
+      cash_out: parseFloat(beli.total_beli_cash || 0),
+      kredit_out: parseFloat(beli.total_beli_kredit || 0)
     });
+  }
+  return rekap;
+});
 
-    laporanPembelian.value = filteredData;
-  } catch (error) {
-    console.error('Gagal mengambil laporan pembelian:', error);
+// ------------------------------------
+// STATE LAPORAN TAHUNAN
+// ------------------------------------
+const tahunFilter = ref(new Date().getFullYear());
+const isLoadingTahunan = ref(false);
+const tahunanData = ref({ penjualan: [], pembelian: [] });
+
+const fetchLaporanTahunan = async () => {
+  isLoadingTahunan.value = true;
+  try {
+    const res = await api.get(`/laporan/tahunan?tahun=${tahunFilter.value}`);
+    tahunanData.value = res.data;
+  } catch (err) {
+    console.error('Error fetching tahunan:', err);
   } finally {
-    isLoadingPembelian.value = false;
+    isLoadingTahunan.value = false;
   }
 };
 
-// Computed Properties for Laporan Penjualan Summary
-const totalOmzetSwalayan = computed(() => {
-  return riwayatBelanja.value
-    .filter(t => t.jenis_transaksi === 'Swalayan')
-    .reduce((sum, t) => sum + t.total_belanja, 0);
+const rekapBulananTahunan = computed(() => {
+  const rekap = [];
+  for (let i = 1; i <= 12; i++) {
+    const jual = tahunanData.value.penjualan.find(p => parseInt(p.bulan) === i) || {};
+    const beli = tahunanData.value.pembelian.find(p => parseInt(p.bulan) === i) || {};
+    rekap.push({
+      bulan_nama: months[i-1],
+      omzet: parseFloat(jual.total_omzet || 0),
+      keuntungan: parseFloat(jual.total_keuntungan || 0),
+      pengeluaran: parseFloat(beli.total_pengeluaran || 0)
+    });
+  }
+  return rekap;
 });
 
-const totalKeuntunganSwalayan = computed(() => {
-  return riwayatBelanja.value
-    .filter(t => t.jenis_transaksi === 'Swalayan')
-    .reduce((sum, t) => sum + t.total_keuntungan, 0);
-});
 
-const totalOmzetGrosir = computed(() => {
-  return riwayatBelanja.value
-    .filter(t => t.jenis_transaksi === 'Grosir')
-    .reduce((sum, t) => sum + t.total_belanja, 0);
-});
+// ------------------------------------
+// STATE LAPORAN SHU ANGGOTA
+// ------------------------------------
+// Data Simulasi SHU
+const totalLaba = ref(0);
+const persentaseSHUAnggota = ref(40); // misal 40% dari Laba diturunkan sbg SHU Anggota
+const totalBelanjaSeluruhAnggota = ref(1); 
+const simulasiAnggota = ref([]);
+const isLoadingSHU = ref(false);
+const riwayatBelanjaAll = ref([]); // Untuk kalkulasi SHU
 
-const totalKeuntunganGrosir = computed(() => {
-  return riwayatBelanja.value
-    .filter(t => t.jenis_transaksi === 'Grosir')
-    .reduce((sum, t) => sum + t.total_keuntungan, 0);
-});
-
-// Computed Properties for Laporan Pembelian Summary
-const totalPembelianSwalayan = computed(() => {
-  return laporanPembelian.value
-    .filter(t => t.kategori === 'Swalayan')
-    .reduce((sum, t) => sum + parseFloat(t.total_biaya || 0), 0);
-});
-
-const totalPembelianGrosir = computed(() => {
-  return laporanPembelian.value
-    .filter(t => t.kategori === 'Grosir')
-    .reduce((sum, t) => sum + parseFloat(t.total_biaya || 0), 0);
-});
+const fetchAllTransaksiForSHU = async () => {
+  try {
+    const res = await api.get('/transaksi');
+    riwayatBelanjaAll.value = res.data;
+  } catch (error) {
+    console.error('Error fetching transaksi for SHU:', error);
+  }
+};
 
 const hitungSimulasiSHU = () => {
   isLoadingSHU.value = true;
-  // Simulasi Perhitungan SHU = (Belanja Anggota / Total Belanja Seluruh Anggota) x Alokasi SHU
-  
   const alokasiSHU = totalLaba.value * (persentaseSHUAnggota.value / 100);
   
-  // Mengelompokkan belanja per NRP
   const rekap = {};
   let totalBelanjaSemua = 0;
   
-  riwayatBelanja.value.forEach(trx => {
-    if (trx.nrp && trx.total_belanja > 0) {
+  riwayatBelanjaAll.value.forEach(trx => {
+    if (trx.nrp && parseFloat(trx.total_bayar) > 0) {
+      const bayar = parseFloat(trx.total_bayar);
       if (!rekap[trx.nrp]) {
-        rekap[trx.nrp] = { nrp: trx.nrp, nama: trx.nama_anggota, total_belanja: 0 };
+        rekap[trx.nrp] = { nrp: trx.nrp, nama: trx.nama_anggota || 'Anggota', total_belanja: 0 };
       }
-      rekap[trx.nrp].total_belanja += trx.total_belanja;
-      totalBelanjaSemua += trx.total_belanja;
+      rekap[trx.nrp].total_belanja += bayar;
+      totalBelanjaSemua += bayar;
     }
   });
 
@@ -175,30 +199,27 @@ const hitungSimulasiSHU = () => {
     };
   });
   
-  // Sort descending by SHU
   simulasiAnggota.value.sort((a, b) => b.estimasi_shu - a.estimasi_shu);
-  
   isLoadingSHU.value = false;
 };
 
-const applyFilter = () => {
-  fetchLaporanBelanja();
-  fetchLaporanPembelian();
+
+// ------------------------------------
+// EXPORT TO EXCEL MOCK
+// ------------------------------------
+const exportToExcel = (jenis) => {
+  alert(`Fungsi "Export to Excel" untuk Laporan ${jenis} sedang dalam tahap pengembangan backend. Data siap diunduh segera!`);
 };
 
+
+// INIT
 onMounted(() => {
-  applyFilter();
+  fetchLaporanHarian();
+  fetchLaporanBulanan();
+  fetchLaporanTahunan();
+  fetchAllTransaksiForSHU();
 });
 
-const formatRupiah = (angka) => {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
-};
-
-const formatDate = (dateString) => {
-  if (!dateString) return '-';
-  const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-  return new Date(dateString).toLocaleDateString('id-ID', options);
-};
 </script>
 
 <template>
@@ -208,134 +229,154 @@ const formatDate = (dateString) => {
     <header class="px-8 py-6 border-b border-slate-200 flex justify-between items-center flex-shrink-0 bg-white">
       <div>
         <h1 class="text-2xl font-bold text-slate-800">Akuntansi & Laporan</h1>
-        <p class="text-sm text-slate-500 mt-1">Laporan Penjualan, Pembelian, dan Kalkulasi SHU Anggota.</p>
+        <p class="text-sm text-slate-500 mt-1">Laporan Lengkap Penjualan, Pembelian, Rekapitulasi dan Kalkulasi SHU Anggota.</p>
       </div>
       <div class="flex bg-slate-100 p-1 rounded-lg">
         <button 
-          @click="activeTab = 'Laporan Penjualan'" 
-          :class="activeTab === 'Laporan Penjualan' ? 'bg-white shadow-sm font-bold text-slate-800' : 'text-slate-500 hover:text-slate-700'"
+          @click="activeTab = 'Laporan Harian'" 
+          :class="activeTab === 'Laporan Harian' ? 'bg-white shadow-sm font-bold text-slate-800' : 'text-slate-500 hover:text-slate-700'"
           class="px-4 py-2 rounded-md text-sm transition-all"
         >
-          Laporan Penjualan
+          Harian
         </button>
         <button 
-          @click="activeTab = 'Laporan Pembelian'" 
-          :class="activeTab === 'Laporan Pembelian' ? 'bg-white shadow-sm font-bold text-slate-800' : 'text-slate-500 hover:text-slate-700'"
+          @click="activeTab = 'Laporan Bulanan'" 
+          :class="activeTab === 'Laporan Bulanan' ? 'bg-white shadow-sm font-bold text-slate-800' : 'text-slate-500 hover:text-slate-700'"
           class="px-4 py-2 rounded-md text-sm transition-all"
         >
-          Laporan Pembelian
+          Bulanan
+        </button>
+        <button 
+          @click="activeTab = 'Laporan Tahunan'" 
+          :class="activeTab === 'Laporan Tahunan' ? 'bg-white shadow-sm font-bold text-slate-800' : 'text-slate-500 hover:text-slate-700'"
+          class="px-4 py-2 rounded-md text-sm transition-all"
+        >
+          Tahunan
         </button>
         <button 
           @click="activeTab = 'Laporan SHU Anggota'" 
           :class="activeTab === 'Laporan SHU Anggota' ? 'bg-blue-600 text-white shadow-sm font-bold' : 'text-slate-500 hover:text-slate-700'"
-          class="px-4 py-2 rounded-md text-sm transition-all"
+          class="px-4 py-2 rounded-md text-sm transition-all ml-1"
         >
-          Laporan SHU Anggota
+          Kalkulasi SHU
         </button>
       </div>
     </header>
 
     <div class="flex-1 overflow-auto bg-slate-50 p-8 flex flex-col gap-6">
       
-      <!-- Filter Bar Universal -->
-      <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200 flex gap-4 items-end flex-shrink-0">
-        <div class="w-48">
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Bulan</label>
-          <select v-model="bulanFilter" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
-            <option v-for="(m, i) in months" :key="i" :value="i+1">{{ m }}</option>
-          </select>
+      <!-- ==============================================
+           TAB: LAPORAN HARIAN
+           ============================================== -->
+      <div v-if="activeTab === 'Laporan Harian'" class="flex-1 flex flex-col gap-6">
+        <!-- Filter Bar -->
+        <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200 flex justify-between items-end flex-shrink-0">
+          <div class="flex gap-4 items-end">
+            <div class="w-48">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Pilih Tanggal</label>
+              <input type="date" v-model="tanggalFilter" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
+            </div>
+            <button @click="fetchLaporanHarian" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md text-sm h-[38px] transition-colors">
+              Lihat Laporan Harian
+            </button>
+          </div>
+          <button @click="exportToExcel('Harian')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md text-sm h-[38px] transition-colors flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            Export to Excel
+          </button>
         </div>
-        <div class="w-32">
-          <label class="block text-xs font-semibold text-slate-600 mb-1">Tahun</label>
-          <input type="number" v-model="tahunFilter" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
-        </div>
-        <button @click="applyFilter" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md text-sm h-[38px] transition-colors">
-          Terapkan Filter Periode
-        </button>
-      </div>
-
-      <!-- TAB: LAPORAN PENJUALAN -->
-      <div v-if="activeTab === 'Laporan Penjualan'" class="flex-1 flex flex-col gap-6">
         
-        <!-- Summary Penjualan -->
+        <!-- Summary Penjualan Harian -->
         <div class="grid grid-cols-2 gap-6">
-          <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-5 text-white shadow-sm">
-            <h3 class="text-blue-100 text-sm font-bold mb-3 uppercase tracking-wider">Sektor Swalayan</h3>
+          <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-5 text-white shadow-sm flex flex-col gap-3">
+            <h3 class="text-blue-100 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+              Penjualan (Pemasukan)
+            </h3>
+            <div class="flex justify-between items-end border-b border-blue-400/50 pb-3">
+              <span class="text-blue-100 text-sm">Total Omzet Hari Ini</span>
+              <span class="text-3xl font-bold">{{ formatRupiah(harianData.ringkasan.penjualan?.total_omzet) }}</span>
+            </div>
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <p class="text-blue-100 text-xs">Total Omzet</p>
-                <p class="text-2xl font-bold">{{ formatRupiah(totalOmzetSwalayan) }}</p>
+                <p class="text-blue-200 text-[11px] uppercase">Tunai (Fisik Laci Kasir)</p>
+                <p class="text-lg font-bold">{{ formatRupiah(harianData.ringkasan.penjualan?.total_cash) }}</p>
               </div>
               <div>
-                <p class="text-blue-100 text-xs">Total Keuntungan</p>
-                <p class="text-2xl font-bold">{{ formatRupiah(totalKeuntunganSwalayan) }}</p>
+                <p class="text-blue-200 text-[11px] uppercase">Debit / Kredit / Qris</p>
+                <p class="text-lg font-bold">{{ formatRupiah(harianData.ringkasan.penjualan?.total_kredit) }}</p>
               </div>
             </div>
           </div>
           
-          <div class="bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl p-5 text-white shadow-sm">
-            <h3 class="text-slate-300 text-sm font-bold mb-3 uppercase tracking-wider">Sektor Grosir</h3>
+          <div class="bg-gradient-to-br from-slate-700 to-slate-800 rounded-xl p-5 text-white shadow-sm flex flex-col gap-3">
+            <h3 class="text-slate-300 text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+              Pembelian (Pengeluaran)
+            </h3>
+            <div class="flex justify-between items-end border-b border-slate-600/50 pb-3">
+              <span class="text-slate-300 text-sm">Total Pengeluaran Hari Ini</span>
+              <span class="text-3xl font-bold">{{ formatRupiah(harianData.ringkasan.pembelian?.total_pengeluaran) }}</span>
+            </div>
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <p class="text-slate-300 text-xs">Total Omzet</p>
-                <p class="text-2xl font-bold">{{ formatRupiah(totalOmzetGrosir) }}</p>
+                <p class="text-slate-400 text-[11px] uppercase">Pembelian Tunai</p>
+                <p class="text-lg font-bold">{{ formatRupiah(harianData.ringkasan.pembelian?.total_beli_cash) }}</p>
               </div>
               <div>
-                <p class="text-slate-300 text-xs">Total Keuntungan</p>
-                <p class="text-2xl font-bold">{{ formatRupiah(totalKeuntunganGrosir) }}</p>
+                <p class="text-slate-400 text-[11px] uppercase">Hutang / Tempo</p>
+                <p class="text-lg font-bold">{{ formatRupiah(harianData.ringkasan.pembelian?.total_beli_kredit) }}</p>
               </div>
             </div>
           </div>
         </div>
 
         <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex-1 flex flex-col min-h-[400px]">
+          <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+            <h3 class="font-bold text-slate-700">Rincian Transaksi Penjualan</h3>
+            <span class="text-xs text-slate-500">{{ harianData.rincian_transaksi?.length }} transaksi tercatat</span>
+          </div>
           <div class="overflow-auto flex-1">
             <table class="w-full text-left text-sm text-slate-600">
               <thead class="bg-slate-100 text-slate-600 uppercase font-bold text-[11px] tracking-wider border-b border-slate-200 sticky top-0 z-10">
                 <tr>
                   <th class="px-6 py-4">Waktu</th>
-                  <th class="px-6 py-4">Sektor</th>
-                  <th class="px-6 py-4">Pembeli</th>
-                  <th class="px-6 py-4 text-right">Omzet</th>
-                  <th class="px-6 py-4 text-right">Keuntungan</th>
+                  <th class="px-6 py-4">Sektor & Metode</th>
+                  <th class="px-6 py-4">Pembeli & Kasir</th>
+                  <th class="px-6 py-4 text-right">Nilai Transaksi</th>
                   <th class="px-6 py-4 text-center">Status</th>
                   <th class="px-6 py-4 text-center w-24">Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-if="isLoadingBelanja">
-                  <td colspan="7" class="px-6 py-12 text-center text-slate-400">Memuat data...</td>
+                <tr v-if="isLoadingHarian">
+                  <td colspan="6" class="px-6 py-12 text-center text-slate-400">Memuat data...</td>
                 </tr>
-                <tr v-else-if="riwayatBelanja.length === 0">
-                  <td colspan="7" class="px-6 py-12 text-center text-slate-400">Belum ada riwayat penjualan pada periode ini.</td>
+                <tr v-else-if="harianData.rincian_transaksi.length === 0">
+                  <td colspan="6" class="px-6 py-12 text-center text-slate-400">Belum ada transaksi hari ini.</td>
                 </tr>
-                <tr v-else v-for="item in riwayatBelanja" :key="item.id_transaksi" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                <tr v-else v-for="item in harianData.rincian_transaksi" :key="item.id_transaksi" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                   <td class="px-6 py-3 text-slate-700">
-                    <div class="font-medium text-slate-800">#TRX-{{ item.id_transaksi }}</div>
-                    <div class="text-[11px]">{{ formatDate(item.waktu) }}</div>
+                    <div class="font-bold text-slate-800">#TRX-{{ item.id_transaksi }}</div>
+                    <div class="text-[11px]">{{ formatDate(item.waktu_transaksi) }}</div>
                   </td>
                   <td class="px-6 py-3">
-                    <span class="px-2 py-1 rounded text-xs font-semibold" :class="item.jenis_transaksi === 'Swalayan' ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-700'">
-                      {{ item.jenis_transaksi }}
-                    </span>
+                    <div class="font-semibold text-slate-700">{{ item.jenis_transaksi }}</div>
+                    <div class="text-[11px] text-slate-500">Metode: <b class="text-blue-600">{{ item.metode_pembayaran || 'Cash' }}</b></div>
                   </td>
                   <td class="px-6 py-3">
-                    <div class="font-medium text-slate-800">{{ item.nama_anggota }}</div>
-                    <div class="text-[11px] text-slate-400" v-if="item.nrp">{{ item.nrp }}</div>
+                    <div class="font-medium text-slate-800">{{ item.nama_anggota || 'Non-Anggota' }}</div>
+                    <div class="text-[11px] text-slate-400">Kasir: {{ item.nama_kasir }}</div>
                   </td>
-                  <td class="px-6 py-3 text-right font-semibold text-slate-700">
-                    <span :class="{'line-through text-slate-400': item.total_belanja === 0}">{{ formatRupiah(item.total_belanja) }}</span>
-                  </td>
-                  <td class="px-6 py-3 text-right font-bold text-green-600">
-                    <span v-if="item.total_belanja > 0">+{{ formatRupiah(item.total_keuntungan) }}</span>
-                    <span v-else class="text-slate-400">Rp 0</span>
+                  <td class="px-6 py-3 text-right font-bold text-slate-700">
+                    <span :class="{'line-through text-slate-400': parseFloat(item.total_bayar) === 0}">{{ formatRupiah(item.total_bayar) }}</span>
                   </td>
                   <td class="px-6 py-3 text-center">
-                    <span v-if="item.total_belanja === 0" class="px-2 py-1 bg-red-100 text-red-700 text-[10px] font-bold rounded">Batal</span>
+                    <span v-if="parseFloat(item.total_bayar) === 0" class="px-2 py-1 bg-red-100 text-red-700 text-[10px] font-bold rounded">Void</span>
                     <span v-else class="px-2 py-1 bg-green-100 text-green-700 text-[10px] font-bold rounded">Berhasil</span>
                   </td>
                   <td class="px-6 py-3 text-center">
-                    <button v-if="item.total_belanja > 0" @click="bukaModalVoid(item)" class="bg-red-500 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded text-xs transition-colors shadow-sm w-full">
+                    <button v-if="parseFloat(item.total_bayar) > 0" @click="bukaModalVoid(item)" class="bg-red-500 hover:bg-red-600 text-white font-bold py-1.5 px-3 rounded text-xs transition-colors shadow-sm w-full">
                       Void
                     </button>
                   </td>
@@ -344,79 +385,140 @@ const formatDate = (dateString) => {
             </table>
           </div>
         </div>
-
       </div>
 
-      <!-- TAB: LAPORAN PEMBELIAN -->
-      <div v-if="activeTab === 'Laporan Pembelian'" class="flex-1 flex flex-col gap-6">
-        
-        <!-- Summary Pembelian -->
-        <div class="grid grid-cols-2 gap-6">
-          <div class="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-5 text-white shadow-sm">
-            <h3 class="text-emerald-100 text-sm font-bold mb-3 uppercase tracking-wider">Kulakan Swalayan</h3>
-            <p class="text-emerald-100 text-xs">Total Pembelian (PO)</p>
-            <p class="text-2xl font-bold">{{ formatRupiah(totalPembelianSwalayan) }}</p>
+      <!-- ==============================================
+           TAB: LAPORAN BULANAN
+           ============================================== -->
+      <div v-if="activeTab === 'Laporan Bulanan'" class="flex-1 flex flex-col gap-6">
+        <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200 flex justify-between items-end flex-shrink-0">
+          <div class="flex gap-4 items-end">
+            <div class="w-48">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Bulan</label>
+              <select v-model="bulanFilter" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
+                <option v-for="(m, i) in months" :key="i" :value="i+1">{{ m }}</option>
+              </select>
+            </div>
+            <div class="w-32">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Tahun</label>
+              <input type="number" v-model="tahunBulanFilter" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
+            </div>
+            <button @click="fetchLaporanBulanan" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md text-sm h-[38px] transition-colors">
+              Lihat Rekap Bulanan
+            </button>
           </div>
-          
-          <div class="bg-gradient-to-br from-teal-700 to-teal-800 rounded-xl p-5 text-white shadow-sm">
-            <h3 class="text-teal-300 text-sm font-bold mb-3 uppercase tracking-wider">Kulakan Grosir</h3>
-            <p class="text-teal-300 text-xs">Total Pembelian (PO)</p>
-            <p class="text-2xl font-bold">{{ formatRupiah(totalPembelianGrosir) }}</p>
-          </div>
+          <button @click="exportToExcel('Bulanan')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md text-sm h-[38px] transition-colors flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            Export to Excel
+          </button>
         </div>
 
         <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex-1 flex flex-col min-h-[400px]">
+          <div class="p-4 border-b border-slate-200 bg-slate-50">
+            <h3 class="font-bold text-slate-700">Rekapitulasi Harian (Tanggal 1 - 31)</h3>
+          </div>
           <div class="overflow-auto flex-1">
             <table class="w-full text-left text-sm text-slate-600">
               <thead class="bg-slate-100 text-slate-600 uppercase font-bold text-[11px] tracking-wider border-b border-slate-200 sticky top-0 z-10">
                 <tr>
-                  <th class="px-6 py-4">Waktu</th>
-                  <th class="px-6 py-4">No. PO</th>
-                  <th class="px-6 py-4">Sektor Kategori</th>
-                  <th class="px-6 py-4">Supplier</th>
-                  <th class="px-6 py-4">Total Biaya</th>
-                  <th class="px-6 py-4">Status & Mutasi</th>
+                  <th class="px-6 py-4 border-r border-slate-200" rowspan="2">Tanggal</th>
+                  <th class="px-6 py-2 border-b border-r border-slate-200 text-center" colspan="3">Pemasukan (Penjualan)</th>
+                  <th class="px-6 py-2 border-b border-slate-200 text-center" colspan="3">Pengeluaran (Pembelian Gudang)</th>
+                </tr>
+                <tr>
+                  <th class="px-4 py-2 border-r border-slate-200 text-right">Omzet Total</th>
+                  <th class="px-4 py-2 border-r border-slate-200 text-right">Cash</th>
+                  <th class="px-4 py-2 border-r border-slate-200 text-right">Kredit</th>
+                  
+                  <th class="px-4 py-2 border-r border-slate-200 text-right">Total Keluar</th>
+                  <th class="px-4 py-2 border-r border-slate-200 text-right">Tunai</th>
+                  <th class="px-4 py-2 text-right">Hutang / Tempo</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-if="isLoadingPembelian">
-                  <td colspan="6" class="px-6 py-12 text-center text-slate-400">Memuat data...</td>
+                <tr v-if="isLoadingBulanan">
+                  <td colspan="7" class="px-6 py-12 text-center text-slate-400">Memuat data...</td>
                 </tr>
-                <tr v-else-if="laporanPembelian.length === 0">
-                  <td colspan="6" class="px-6 py-12 text-center text-slate-400">Belum ada riwayat pembelian pada periode ini.</td>
-                </tr>
-                <tr v-else v-for="item in laporanPembelian" :key="item.id_pembelian" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                  <td class="px-6 py-3 text-slate-700">{{ formatDate(item.waktu_pembelian) }}</td>
-                  <td class="px-6 py-3 font-bold text-slate-800">PO-{{ item.id_pembelian }}</td>
-                  <td class="px-6 py-3 font-medium text-slate-700">{{ item.kategori }}</td>
-                  <td class="px-6 py-3">{{ item.nama_supplier }}</td>
-                  <td class="px-6 py-3 font-bold text-slate-800">{{ formatRupiah(item.total_biaya) }}</td>
-                  <td class="px-6 py-3">
-                    <span class="px-2 py-1 rounded text-[10px] font-bold" 
-                      :class="{
-                        'bg-yellow-100 text-yellow-800': item.status === 'Belum di Order',
-                        'bg-blue-100 text-blue-800': item.status === 'Dipesan',
-                        'bg-green-100 text-green-800': item.status === 'Diterima',
-                        'bg-emerald-100 text-emerald-800': item.status === 'Dimutasi',
-                        'bg-red-100 text-red-800': item.status === 'Batal' || item.status === 'Ditunda'
-                      }">
-                      {{ item.status }}
-                    </span>
-                  </td>
+                <tr v-else v-for="item in rekapHarianBulanan" :key="item.tanggal" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                  <td class="px-6 py-3 font-semibold text-slate-800 border-r border-slate-100">{{ item.tanggal }}</td>
+                  <td class="px-4 py-3 text-right font-bold text-blue-600 border-r border-slate-100">{{ formatRupiah(item.omzet) }}</td>
+                  <td class="px-4 py-3 text-right text-slate-600 border-r border-slate-100">{{ formatRupiah(item.cash_in) }}</td>
+                  <td class="px-4 py-3 text-right text-slate-600 border-r border-slate-100">{{ formatRupiah(item.kredit_in) }}</td>
+                  <td class="px-4 py-3 text-right font-bold text-red-600 border-r border-slate-100">{{ formatRupiah(item.pengeluaran) }}</td>
+                  <td class="px-4 py-3 text-right text-slate-600 border-r border-slate-100">{{ formatRupiah(item.cash_out) }}</td>
+                  <td class="px-4 py-3 text-right text-slate-600">{{ formatRupiah(item.kredit_out) }}</td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
-
       </div>
 
-      <!-- TAB: KALKULASI SHU ANGGOTA -->
+
+      <!-- ==============================================
+           TAB: LAPORAN TAHUNAN
+           ============================================== -->
+      <div v-if="activeTab === 'Laporan Tahunan'" class="flex-1 flex flex-col gap-6">
+        <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200 flex justify-between items-end flex-shrink-0">
+          <div class="flex gap-4 items-end">
+            <div class="w-32">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Tahun</label>
+              <input type="number" v-model="tahunFilter" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
+            </div>
+            <button @click="fetchLaporanTahunan" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md text-sm h-[38px] transition-colors">
+              Lihat Rekap Tahunan
+            </button>
+          </div>
+          <button @click="exportToExcel('Tahunan')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md text-sm h-[38px] transition-colors flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            Export to Excel
+          </button>
+        </div>
+
+        <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex-1 flex flex-col min-h-[400px]">
+          <div class="p-4 border-b border-slate-200 bg-slate-50">
+            <h3 class="font-bold text-slate-700">Rekapitulasi Bulanan (Januari - Desember)</h3>
+          </div>
+          <div class="overflow-auto flex-1">
+            <table class="w-full text-left text-sm text-slate-600">
+              <thead class="bg-slate-100 text-slate-600 uppercase font-bold text-[11px] tracking-wider border-b border-slate-200 sticky top-0 z-10">
+                <tr>
+                  <th class="px-6 py-4">Bulan</th>
+                  <th class="px-6 py-4 text-right">Total Omzet Penjualan</th>
+                  <th class="px-6 py-4 text-right text-emerald-700 bg-emerald-50">Laba Bersih (Keuntungan)</th>
+                  <th class="px-6 py-4 text-right text-red-700 bg-red-50">Total Pengeluaran Gudang</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="isLoadingTahunan">
+                  <td colspan="4" class="px-6 py-12 text-center text-slate-400">Memuat data...</td>
+                </tr>
+                <tr v-else v-for="(item, idx) in rekapBulananTahunan" :key="idx" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                  <td class="px-6 py-4 font-semibold text-slate-800">{{ item.bulan_nama }}</td>
+                  <td class="px-6 py-4 text-right font-bold text-blue-600">{{ formatRupiah(item.omzet) }}</td>
+                  <td class="px-6 py-4 text-right font-bold text-emerald-600 bg-emerald-50/30">{{ formatRupiah(item.keuntungan) }}</td>
+                  <td class="px-6 py-4 text-right font-bold text-red-500 bg-red-50/30">{{ formatRupiah(item.pengeluaran) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==============================================
+           TAB: KALKULASI SHU ANGGOTA
+           ============================================== -->
       <div v-if="activeTab === 'Laporan SHU Anggota'" class="max-w-4xl mx-auto h-full overflow-auto w-full">
         
         <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-md p-6 text-white mb-6">
-          <h2 class="font-bold text-xl mb-1">Laporan Alokasi SHU Anggota</h2>
-          <p class="text-blue-100 text-sm mb-6">Lacak dan hitung pembagian Sisa Hasil Usaha (SHU) tiap anggota berdasarkan persentase partisipasi belanja mereka di koperasi pada periode ini.</p>
+          <div class="flex justify-between items-start mb-1">
+            <h2 class="font-bold text-xl">Laporan Alokasi SHU Anggota</h2>
+            <button @click="exportToExcel('SHU')" class="bg-white/20 hover:bg-white/30 text-white font-bold py-1.5 px-4 rounded text-xs transition-colors flex items-center gap-2 border border-white/30">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              Export to Excel
+            </button>
+          </div>
+          <p class="text-blue-100 text-sm mb-6">Lacak dan hitung pembagian Sisa Hasil Usaha (SHU) tiap anggota berdasarkan persentase partisipasi belanja mereka di koperasi.</p>
           
           <div class="grid grid-cols-2 gap-6 bg-white/10 p-5 rounded-lg border border-white/20 backdrop-blur-sm">
             <div>
@@ -446,10 +548,6 @@ const formatDate = (dateString) => {
               <h3 class="font-bold text-lg text-slate-800">Daftar Penerima SHU Anggota</h3>
               <p class="text-xs text-slate-500">Total Alokasi SHU Anggota: <b>{{ formatRupiah(totalLaba * (persentaseSHUAnggota / 100)) }}</b></p>
             </div>
-            <button class="text-sm font-bold text-blue-600 hover:underline flex gap-1 items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-              Cetak / Ekspor PDF
-            </button>
           </div>
           
           <div class="overflow-auto max-h-[500px]">
@@ -484,13 +582,13 @@ const formatDate = (dateString) => {
     <div v-if="isVoidModalOpen" class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
       <div class="bg-white w-full max-w-md rounded-xl shadow-xl flex flex-col overflow-hidden">
         <div class="px-6 py-4 border-b border-slate-200 bg-red-50 flex justify-between items-center">
-          <h3 class="font-bold text-lg text-red-700">Otorisasi Void Transaksi</h3>
+          <h3 class="font-bold text-lg text-red-700">Konfirmasi Void Transaksi</h3>
           <button @click="tutupModalVoid" class="text-red-400 hover:text-red-600"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
         </div>
         
         <div class="p-6 flex flex-col gap-4">
           <div class="bg-slate-50 p-3 rounded text-sm text-slate-700 border border-slate-200 mb-2">
-            Anda akan membatalkan Transaksi <b>#TRX-{{ transaksiToVoid?.id_transaksi }}</b> senilai <b>{{ formatRupiah(transaksiToVoid?.total_belanja) }}</b>. Stok barang akan dikembalikan dan jurnal akuntansi pembalik akan dicatat. Tindakan ini memerlukan otorisasi Supervisor/Admin.
+            Anda akan membatalkan Transaksi <b>#TRX-{{ transaksiToVoid?.id_transaksi }}</b> senilai <b>{{ formatRupiah(transaksiToVoid?.total_bayar) }}</b>. Stok barang akan dikembalikan dan jurnal akuntansi pembalik akan dicatat. Tindakan ini memerlukan otorisasi Supervisor/Admin.
           </div>
         </div>
 
@@ -498,7 +596,7 @@ const formatDate = (dateString) => {
           <button @click="tutupModalVoid" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-md">Batal</button>
           <button @click="submitVoid" :disabled="isSubmittingVoid" class="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-md shadow-sm disabled:opacity-50 flex gap-2 items-center">
             <span v-if="isSubmittingVoid">Memproses...</span>
-            <span v-else>Konfirmasi Void</span>
+            <span v-else>Void Sekarang</span>
           </button>
         </div>
       </div>

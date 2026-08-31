@@ -57,7 +57,7 @@ watch(keranjang, (newVal) => {
 // State Anggota & Pembayaran
 const nrpAnggota = ref('');
 const isAnggotaDropdownOpen = ref(false);
-const metodePembayaran = ref('Tunai'); // Tunai, EDC, QRIS
+const metodePembayaran = ref('Cash'); // Cash, Kredit, QRIS, Transfer Bank
 
 const filteredAnggota = computed(() => {
   if (!nrpAnggota.value || !Array.isArray(masterAnggota.value)) return [];
@@ -239,7 +239,7 @@ const prosesTransaksi = async () => {
     diskonPersen.value = 0;
     searchQuery.value = '';
     nrpAnggota.value = '';
-    metodePembayaran.value = 'Tunai';
+    metodePembayaran.value = 'Cash';
     
     // Refresh stok
     await fetchBarang();
@@ -430,14 +430,14 @@ const prosesTransaksi = async () => {
           <div class="mt-2">
             <label class="text-xs font-semibold text-slate-800 block mb-1">Metode Pembayaran</label>
             <select v-model="metodePembayaran" class="w-full border border-slate-300 p-2 rounded text-sm text-slate-800 focus:outline-none focus:border-blue-600 font-semibold bg-white">
-              <option value="Tunai">Tunai (Cash)</option>
-              <option value="Debit / Kredit">Debit / Kredit</option>
+              <option value="Cash">Cash (Tunai)</option>
+              <option value="Kredit">Kredit / Debit</option>
               <option value="QRIS">QRIS</option>
               <option value="Transfer Bank">Transfer Bank</option>
             </select>
           </div>
 
-          <div v-if="metodePembayaran === 'Tunai'" class="flex flex-col gap-1 mt-2">
+          <div v-if="metodePembayaran === 'Cash'" class="flex flex-col gap-1 mt-2">
             <label class="text-xs font-semibold text-slate-800">Uang Diterima</label>
             <input 
               type="number" v-model="uangDiterima" :disabled="keranjang.length === 0"
@@ -446,14 +446,14 @@ const prosesTransaksi = async () => {
             >
           </div>
 
-          <div v-if="metodePembayaran === 'Tunai'" class="grid grid-cols-4 gap-1.5">
+          <div v-if="metodePembayaran === 'Cash'" class="grid grid-cols-4 gap-1.5">
             <button @click="setUang('Pas')" :disabled="keranjang.length === 0" class="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-[11px] font-semibold py-1.5 rounded border border-slate-300">Uang Pas</button>
             <button @click="setUang(2000000)" :disabled="keranjang.length === 0" class="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-[11px] font-semibold py-1.5 rounded border border-slate-300">2 Juta</button>
             <button @click="setUang(3000000)" :disabled="keranjang.length === 0" class="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-[11px] font-semibold py-1.5 rounded border border-slate-300">3 Juta</button>
             <button @click="setUang(4000000)" :disabled="keranjang.length === 0" class="bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 text-[11px] font-semibold py-1.5 rounded border border-slate-300">4 Juta</button>
           </div>
 
-          <div v-if="metodePembayaran === 'Tunai'" class="flex justify-between items-center bg-slate-100 p-3 rounded border border-slate-200 mt-2">
+          <div v-if="metodePembayaran === 'Cash'" class="flex justify-between items-center bg-slate-100 p-3 rounded border border-slate-200 mt-2">
             <span class="text-sm font-semibold text-slate-600">Kembalian</span>
             <span class="text-lg font-bold text-slate-800">{{ formatRupiah(kembalian) }}</span>
           </div>
@@ -464,8 +464,8 @@ const prosesTransaksi = async () => {
           <button 
             @click="prosesTransaksi"
             class="w-full font-bold py-3 text-sm rounded transition-colors flex justify-center items-center gap-2"
-            :class="(metodePembayaran === 'Tunai' && uangDiterima >= totalBelanjaAkhir) || (metodePembayaran !== 'Tunai' && keranjang.length > 0) ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md' : 'bg-slate-300 text-slate-500 cursor-not-allowed'"
-            :disabled="(metodePembayaran === 'Tunai' && uangDiterima < totalBelanjaAkhir) || (metodePembayaran !== 'Tunai' && keranjang.length === 0) || isProcessing"
+            :class="(metodePembayaran === 'Cash' && uangDiterima >= totalBelanjaAkhir) || (metodePembayaran !== 'Cash' && keranjang.length > 0) ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md' : 'bg-slate-300 text-slate-500 cursor-not-allowed'"
+            :disabled="(metodePembayaran === 'Cash' && uangDiterima < totalBelanjaAkhir) || (metodePembayaran !== 'Cash' && keranjang.length === 0) || isProcessing"
           >
             <span v-if="isProcessing">Memproses...</span>
             <span v-else>Bayar & Cetak Struk</span>
