@@ -76,26 +76,26 @@ const getLaporanBulanan = async (req, res) => {
     // Rekap Penjualan per hari
     const [penjualanPerHari] = await db.execute(`
       SELECT 
-        DATE(waktu_transaksi) as tanggal,
+        DATE_FORMAT(waktu_transaksi, '%Y-%m-%d') as tanggal,
         SUM(total_bayar) as total_omzet,
         SUM(CASE WHEN metode_pembayaran = 'Cash' THEN total_bayar ELSE 0 END) as total_cash,
         SUM(CASE WHEN metode_pembayaran = 'Kredit' THEN total_bayar ELSE 0 END) as total_kredit
       FROM Transaksi
       WHERE MONTH(waktu_transaksi) = ? AND YEAR(waktu_transaksi) = ? AND total_bayar > 0
-      GROUP BY DATE(waktu_transaksi)
+      GROUP BY tanggal
       ORDER BY tanggal ASC
     `, [bulan, tahun]);
 
     // Rekap Pembelian per hari
     const [pembelianPerHari] = await db.execute(`
       SELECT 
-        DATE(waktu_pembelian) as tanggal,
+        DATE_FORMAT(waktu_pembelian, '%Y-%m-%d') as tanggal,
         SUM(total_biaya) as total_pengeluaran,
         SUM(CASE WHEN metode_pembayaran = 'Cash' THEN total_biaya ELSE 0 END) as total_beli_cash,
         SUM(CASE WHEN metode_pembayaran = 'Tempo' THEN total_biaya ELSE 0 END) as total_beli_kredit
       FROM pembelian
       WHERE MONTH(waktu_pembelian) = ? AND YEAR(waktu_pembelian) = ? AND status != 'Batal'
-      GROUP BY DATE(waktu_pembelian)
+      GROUP BY tanggal
       ORDER BY tanggal ASC
     `, [bulan, tahun]);
 

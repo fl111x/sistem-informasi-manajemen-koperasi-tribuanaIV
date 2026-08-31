@@ -36,8 +36,8 @@ async function seedData() {
     // Create realistic barang
     for (const item of realisticItems) {
       const barcode = `899${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`;
-      const stok_swalayan = Math.floor(Math.random() * 50) + 10;
-      const stok_grosir = Math.floor(Math.random() * 30) + 5;
+      const stok_swalayan = Math.floor(Math.random() * 500) + 100;
+      const stok_grosir = Math.floor(Math.random() * 300) + 50;
       const stok_minimal = 10;
       
       const query = `
@@ -65,28 +65,44 @@ async function seedData() {
     const [penggunaRows] = await db.execute('SELECT id_pengguna FROM Pengguna');
     const penggunaIds = penggunaRows.map(p => p.id_pengguna);
     if (penggunaIds.length === 0) {
-        // Fallback user id if empty
         penggunaIds.push(1);
     }
+
+    // GET ALL ANGGOTA to assign nrp to credit transactions
+    const [anggotaRows] = await db.execute('SELECT nrp FROM Anggota');
+    const anggotaNrps = anggotaRows.map(a => a.nrp);
     
     // 2. DUMMY TRANSAKSI
-    // Create 20 transactions spread over the last 7 days
-    for (let i = 1; i <= 20; i++) {
-      const jenis_transaksi = Math.random() > 0.5 ? 'Swalayan' : 'Grosir';
-      const kasirId = penggunaIds[Math.floor(Math.random() * penggunaIds.length)];
-      
-      // Random date within the last 7 days
-      const daysAgo = Math.floor(Math.random() * 7);
-      const dateObj = new Date();
-      dateObj.setDate(dateObj.getDate() - daysAgo);
-      dateObj.setHours(Math.floor(Math.random() * 14) + 8); // 8 AM to 10 PM
-      dateObj.setMinutes(Math.floor(Math.random() * 60));
-      
-      const mysqlDate = dateObj.toISOString().slice(0, 19).replace('T', ' ');
+    // Create realistic transactions specifically for August 1 to 31, 2026
+    let trxCount = 0;
+    for (let day = 1; day <= 31; day++) {
+      const numTrxPerDay = Math.floor(Math.random() * 6) + 3; // 3 to 8 trx/day
+      for (let j = 0; j < numTrxPerDay; j++) {
+        trxCount++;
+        const isSwalayan = Math.random() > 0.4;
+        const jenis_transaksi = isSwalayan ? 'Swalayan' : 'Grosir';
+        const kasirId = penggunaIds[Math.floor(Math.random() * penggunaIds.length)];
+        
+        const hh = String(Math.floor(Math.random() * 14) + 8).padStart(2, '0');
+        const mm = String(Math.floor(Math.random() * 60)).padStart(2, '0');
+        const mysqlDate = `2026-08-${String(day).padStart(2, '0')} ${hh}:${mm}:00`;
 
+      // Determine metode_pembayaran
+      // Let's say 20% of transactions are Kredit
+      const isKredit = Math.random() < 0.2;
+      const metode_pembayaran = isKredit ? 'Kredit' : 'Cash';
+      
+      let nrp = null;
+      if (isKredit && anggotaNrps.length > 0) {
+        nrp = anggotaNrps[Math.floor(Math.random() * anggotaNrps.length)];
+      } else if (Math.random() < 0.3 && anggotaNrps.length > 0) {
+        // Some cash transactions are also tied to members
+        nrp = anggotaNrps[Math.floor(Math.random() * anggotaNrps.length)];
+      }
       // Pick 1 to 5 random items for this transaction (no duplicates)
       const numItems = Math.floor(Math.random() * 5) + 1;
       let total_bayar = 0;
+      let total_keuntungan = 0;
       const selectedItems = [];
       
       const shuffledBarang = [...barangRows].sort(() => 0.5 - Math.random());
@@ -104,10 +120,14 @@ async function seedData() {
           harga_satuan = randomItem.harga_grosir;
         }
         subtotal = harga_satuan * quantity;
+        const keuntungan = subtotal - (randomItem.harga_beli * quantity);
+        
         total_bayar += subtotal;
+        total_keuntungan += keuntungan;
         
         selectedItems.push({
           id_barang: randomItem.id_barang,
+          nama_barang: randomItem.nama_barang,
           quantity,
           harga_satuan,
           subtotal
@@ -115,22 +135,33 @@ async function seedData() {
       }
       
       const insertTrxQuery = `
-        INSERT INTO Transaksi (waktu_transaksi, total_bayar, jenis_transaksi, id_pengguna)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO Transaksi (waktu_transaksi, total_bayar, jenis_transaksi, id_pengguna, metode_pembayaran, nrp)
+        VALUES (?, ?, ?, ?, ?, ?)
       `;
-      const [trxResult] = await db.execute(insertTrxQuery, [mysqlDate, total_bayar, jenis_transaksi, kasirId]);
+      const [trxResult] = await db.execute(insertTrxQuery, [mysqlDate, total_bayar, jenis_transaksi, kasirId, metode_pembayaran, nrp]);
       const id_transaksi = trxResult.insertId;
       
+      // Update keuntungan later or we can alter table to add total_keuntungan if it's there
+      // Wait, is total_keuntungan in the db? The controller does `UPDATE Transaksi SET total_bayar = ?, total_keuntungan = ?` 
+      // Let's assume total_keuntungan is in the Transaksi table since it's in the controller logic.
+      // Wait, let's just run an update query.
+      try {
+          await db.execute('UPDATE Transaksi SET total_keuntungan = ? WHERE id_transaksi = ?', [total_keuntungan, id_transaksi]);
+      } catch(err) {
+          // Ignore if total_keuntungan column doesn't exist
+      }
+
       // 3. DUMMY DETAIL TRANSAKSI
       for (const item of selectedItems) {
         const insertDetailQuery = `
-          INSERT INTO detail_transaksi (id_transaksi, id_barang, quantity_barang, diskon, subtotal)
-          VALUES (?, ?, ?, ?, ?)
+          INSERT INTO detail_transaksi (id_transaksi, id_barang, quantity_barang, diskon, subtotal, snapshot_nama_barang)
+          VALUES (?, ?, ?, ?, ?, ?)
         `;
-        await db.execute(insertDetailQuery, [id_transaksi, item.id_barang, item.quantity, 0, item.subtotal]);
+        await db.execute(insertDetailQuery, [id_transaksi, item.id_barang, item.quantity, 0, item.subtotal, item.nama_barang]);
+      }
       }
     }
-    console.log('✅ Berhasil membuat 20 Transaksi dummy beserta detailnya');
+    console.log(`✅ Berhasil membuat ${trxCount} Transaksi dummy realistis beserta detailnya khusus Bulan Agustus 2026`);
 
     console.log('Selesai!');
     process.exit(0);

@@ -1,6 +1,31 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import api from '../services/api';
+import {
+  Chart as ChartJS,
+  Title,
+  Tooltip,
+  Legend,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  ArcElement
+} from 'chart.js';
+import { Bar, Line, Doughnut } from 'vue-chartjs';
+
+ChartJS.register(
+  Title,
+  Tooltip,
+  Legend,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  ArcElement
+);
 
 const activeTab = ref('Laporan Harian'); // 'Laporan Harian', 'Laporan Bulanan', 'Laporan Tahunan', 'Laporan SHU Anggota'
 
@@ -70,6 +95,33 @@ const submitVoid = async () => {
   }
 };
 
+// Computed Charts - Harian
+const doughnutOptions = { responsive: true, maintainAspectRatio: false };
+const harianJenisChartData = computed(() => {
+  return {
+    labels: ['Swalayan', 'Grosir'],
+    datasets: [{
+      data: [
+        parseFloat(harianData.value.ringkasan.penjualan?.total_swalayan || 0),
+        parseFloat(harianData.value.ringkasan.penjualan?.total_grosir || 0)
+      ],
+      backgroundColor: ['#3b82f6', '#10b981'],
+    }]
+  }
+});
+const harianMetodeChartData = computed(() => {
+  return {
+    labels: ['Cash', 'Kredit/Debit'],
+    datasets: [{
+      data: [
+        parseFloat(harianData.value.ringkasan.penjualan?.total_cash || 0),
+        parseFloat(harianData.value.ringkasan.penjualan?.total_kredit || 0)
+      ],
+      backgroundColor: ['#f59e0b', '#8b5cf6'],
+    }]
+  }
+});
+
 // ------------------------------------
 // STATE LAPORAN BULANAN
 // ------------------------------------
@@ -116,6 +168,36 @@ const rekapHarianBulanan = computed(() => {
   return rekap;
 });
 
+// Computed Charts - Bulanan
+const lineOptions = { responsive: true, maintainAspectRatio: false };
+const bulananChartData = computed(() => {
+  const labels = rekapHarianBulanan.value.map(item => item.tanggal.split('-')[2]);
+  const omzetData = rekapHarianBulanan.value.map(item => item.omzet);
+  const pengeluaranData = rekapHarianBulanan.value.map(item => item.pengeluaran);
+
+  return {
+    labels,
+    datasets: [
+      {
+        label: 'Omzet Penjualan',
+        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+        borderColor: '#3b82f6',
+        tension: 0.3,
+        fill: true,
+        data: omzetData
+      },
+      {
+        label: 'Pengeluaran Pembelian',
+        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+        borderColor: '#ef4444',
+        tension: 0.3,
+        fill: true,
+        data: pengeluaranData
+      }
+    ]
+  }
+});
+
 // ------------------------------------
 // STATE LAPORAN TAHUNAN
 // ------------------------------------
@@ -150,6 +232,29 @@ const rekapBulananTahunan = computed(() => {
   return rekap;
 });
 
+// Computed Charts - Tahunan
+const barOptions = { responsive: true, maintainAspectRatio: false };
+const tahunanChartData = computed(() => {
+  const labels = rekapBulananTahunan.value.map(item => item.bulan_nama.substring(0,3));
+  const omzetData = rekapBulananTahunan.value.map(item => item.omzet);
+  const pengeluaranData = rekapBulananTahunan.value.map(item => item.pengeluaran);
+
+  return {
+    labels,
+    datasets: [
+      {
+        label: 'Omzet Penjualan',
+        backgroundColor: '#3b82f6',
+        data: omzetData
+      },
+      {
+        label: 'Pengeluaran Gudang',
+        backgroundColor: '#ef4444',
+        data: pengeluaranData
+      }
+    ]
+  }
+});
 
 // ------------------------------------
 // STATE LAPORAN SHU ANGGOTA
@@ -331,6 +436,24 @@ onMounted(() => {
           </div>
         </div>
 
+        <!-- Grafik Penjualan Harian -->
+        <div class="grid grid-cols-2 gap-6">
+          <div class="bg-white border border-slate-200 rounded-lg shadow-sm p-4 flex flex-col items-center justify-center">
+            <h3 class="font-bold text-slate-700 mb-4 text-center">Proporsi Sektor Penjualan</h3>
+            <div class="w-56 h-56 relative flex items-center justify-center">
+              <Doughnut v-if="harianData.rincian_transaksi?.length > 0" :data="harianJenisChartData" :options="doughnutOptions" />
+              <div v-else class="text-slate-400 text-sm italic">Belum ada data</div>
+            </div>
+          </div>
+          <div class="bg-white border border-slate-200 rounded-lg shadow-sm p-4 flex flex-col items-center justify-center">
+            <h3 class="font-bold text-slate-700 mb-4 text-center">Proporsi Metode Pembayaran</h3>
+            <div class="w-56 h-56 relative flex items-center justify-center">
+              <Doughnut v-if="harianData.rincian_transaksi?.length > 0" :data="harianMetodeChartData" :options="doughnutOptions" />
+              <div v-else class="text-slate-400 text-sm italic">Belum ada data</div>
+            </div>
+          </div>
+        </div>
+
         <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex-1 flex flex-col min-h-[400px]">
           <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
             <h3 class="font-bold text-slate-700">Rincian Transaksi Penjualan</h3>
@@ -413,6 +536,14 @@ onMounted(() => {
           </button>
         </div>
 
+        <!-- Grafik Tren Bulanan -->
+        <div class="bg-white border border-slate-200 rounded-lg shadow-sm p-4 h-72 flex flex-col">
+          <h3 class="font-bold text-slate-700 mb-2">Tren Omzet dan Pengeluaran Harian</h3>
+          <div class="flex-1 min-h-0 relative">
+            <Line v-if="rekapHarianBulanan?.length > 0" :data="bulananChartData" :options="lineOptions" />
+          </div>
+        </div>
+
         <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex-1 flex flex-col min-h-[400px]">
           <div class="p-4 border-b border-slate-200 bg-slate-50">
             <h3 class="font-bold text-slate-700">Rekapitulasi Harian (Tanggal 1 - 31)</h3>
@@ -475,6 +606,14 @@ onMounted(() => {
           </button>
         </div>
 
+        <!-- Grafik Tren Tahunan -->
+        <div class="bg-white border border-slate-200 rounded-lg shadow-sm p-4 h-72 flex flex-col">
+          <h3 class="font-bold text-slate-700 mb-2">Performa Omzet dan Pengeluaran per Bulan</h3>
+          <div class="flex-1 min-h-0 relative">
+            <Bar v-if="rekapBulananTahunan?.length > 0" :data="tahunanChartData" :options="barOptions" />
+          </div>
+        </div>
+
         <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex-1 flex flex-col min-h-[400px]">
           <div class="p-4 border-b border-slate-200 bg-slate-50">
             <h3 class="font-bold text-slate-700">Rekapitulasi Bulanan (Januari - Desember)</h3>
@@ -485,7 +624,6 @@ onMounted(() => {
                 <tr>
                   <th class="px-6 py-4">Bulan</th>
                   <th class="px-6 py-4 text-right">Total Omzet Penjualan</th>
-                  <th class="px-6 py-4 text-right text-emerald-700 bg-emerald-50">Laba Bersih (Keuntungan)</th>
                   <th class="px-6 py-4 text-right text-red-700 bg-red-50">Total Pengeluaran Gudang</th>
                 </tr>
               </thead>
@@ -496,7 +634,6 @@ onMounted(() => {
                 <tr v-else v-for="(item, idx) in rekapBulananTahunan" :key="idx" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                   <td class="px-6 py-4 font-semibold text-slate-800">{{ item.bulan_nama }}</td>
                   <td class="px-6 py-4 text-right font-bold text-blue-600">{{ formatRupiah(item.omzet) }}</td>
-                  <td class="px-6 py-4 text-right font-bold text-emerald-600 bg-emerald-50/30">{{ formatRupiah(item.keuntungan) }}</td>
                   <td class="px-6 py-4 text-right font-bold text-red-500 bg-red-50/30">{{ formatRupiah(item.pengeluaran) }}</td>
                 </tr>
               </tbody>

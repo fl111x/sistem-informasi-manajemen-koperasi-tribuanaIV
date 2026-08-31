@@ -49,6 +49,7 @@
 - [ ] (UI) Implementasi Laporan Bulanan (Filter bulan & tahun, tabel rekapitulasi harian tanggal 1-31)
 - [ ] (UI) Implementasi Laporan Tahunan (Filter tahun, tabel rekapitulasi bulanan)
 - [ ] (UI) Menambahkan pilihan Cash / Kredit pada form Kasir Swalayan dan Grosir.
+- [ ] (Fitur Tertunda) Implementasi Export to Excel beserta embedding Grafik menggunakan library `exceljs` (Ditunda sementara karena kendala koneksi internet server).
 
 ## Catatan Tambahan Terkini
 - **Pemulihan Modul Kelola Supplier**: Berdasarkan wawancara terbaru (04/08/2026), pengelolaan hutang/tempo sangat penting sehingga tabel supplier akan dihidupkan kembali dan dihubungkan dengan transaksi pembelian.
