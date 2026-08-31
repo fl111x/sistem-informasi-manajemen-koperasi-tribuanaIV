@@ -340,6 +340,7 @@ const hitungSimulasiSHU = () => {
     return {
       nrp: anggota.nrp,
       nama: anggota.nama,
+      pangkat: anggota.pangkat || '-',
       simpanan: jumlahSimpanan,
       belanja: jumlahBelanjaan,
       shu_simpanan: shuSimpanan,
@@ -746,6 +747,7 @@ onMounted(() => {
                 <tr>
                   <th class="px-4 py-3 w-12 text-center">No</th>
                   <th class="px-4 py-3">Nama Anggota</th>
+                  <th class="px-4 py-3">Pangkat</th>
                   <th class="px-4 py-3 text-right">Data Simpanan</th>
                   <th class="px-4 py-3 text-right border-r border-slate-200">Data Belanja</th>
                   <th class="px-4 py-3 text-right bg-blue-50/50">Jasa Simpanan</th>
@@ -761,6 +763,7 @@ onMounted(() => {
                     <div>{{ anggota.nama }}</div>
                     <div class="text-[10px] text-slate-400">NRP: {{ anggota.nrp }}</div>
                   </td>
+                  <td class="px-4 py-3 font-medium text-slate-600 text-xs">{{ anggota.pangkat }}</td>
                   <td class="px-4 py-3 text-right text-slate-500 text-xs">{{ formatRupiah(anggota.simpanan) }}</td>
                   <td class="px-4 py-3 text-right text-slate-500 text-xs border-r border-slate-100">{{ formatRupiah(anggota.belanja) }}</td>
                   
