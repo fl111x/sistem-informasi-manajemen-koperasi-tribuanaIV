@@ -14,6 +14,7 @@ import {
   ArcElement
 } from 'chart.js';
 import { Bar, Line, Doughnut } from 'vue-chartjs';
+import * as XLSX from 'xlsx';
 
 ChartJS.register(
   Title,
@@ -125,15 +126,17 @@ const harianMetodeChartData = computed(() => {
 // ------------------------------------
 // STATE LAPORAN BULANAN
 // ------------------------------------
-const bulanFilter = ref(new Date().getMonth() + 1); 
-const tahunBulanFilter = ref(new Date().getFullYear());
+const now = new Date();
+const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+const startDateBulanan = ref(firstDayOfMonth.toISOString().split('T')[0]);
+const endDateBulanan = ref(now.toISOString().split('T')[0]);
 const isLoadingBulanan = ref(false);
 const bulananData = ref({ penjualan: [], pembelian: [] });
 
 const fetchLaporanBulanan = async () => {
   isLoadingBulanan.value = true;
   try {
-    const res = await api.get(`/laporan/bulanan?bulan=${bulanFilter.value}&tahun=${tahunBulanFilter.value}`);
+    const res = await api.get(`/laporan/bulanan?startDate=${startDateBulanan.value}&endDate=${endDateBulanan.value}`);
     bulananData.value = res.data;
   } catch (err) {
     console.error('Error fetching bulanan:', err);
@@ -142,18 +145,31 @@ const fetchLaporanBulanan = async () => {
   }
 };
 
-// Combine data for daily rows (1 to end of month)
-const rekapHarianBulanan = computed(() => {
-  const year = tahunBulanFilter.value;
-  const month = bulanFilter.value;
-  const daysInMonth = new Date(year, month, 0).getDate();
+const setPresetBulanan = (preset) => {
+  const end = new Date();
+  let start = new Date();
   
+  if (preset === 'Bulan Ini') {
+    start = new Date(end.getFullYear(), end.getMonth(), 1);
+  } else if (preset === '30 Hari') {
+    start.setDate(end.getDate() - 30);
+  }
+  
+  startDateBulanan.value = start.toISOString().split('T')[0];
+  endDateBulanan.value = end.toISOString().split('T')[0];
+  fetchLaporanBulanan();
+};
+
+// Combine data for daily rows
+const rekapHarianBulanan = computed(() => {
   const rekap = [];
-  for (let i = 1; i <= daysInMonth; i++) {
-    // Format YYYY-MM-DD
-    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-    const jual = bulananData.value.penjualan.find(p => p.tanggal.startsWith(dateStr)) || {};
-    const beli = bulananData.value.pembelian.find(p => p.tanggal.startsWith(dateStr)) || {};
+  let current = new Date(startDateBulanan.value);
+  const end = new Date(endDateBulanan.value);
+  
+  while (current <= end) {
+    const dateStr = current.toISOString().split('T')[0];
+    const jual = bulananData.value.penjualan.find(p => p.tanggal === dateStr) || {};
+    const beli = bulananData.value.pembelian.find(p => p.tanggal === dateStr) || {};
     
     rekap.push({
       tanggal: dateStr,
@@ -164,6 +180,8 @@ const rekapHarianBulanan = computed(() => {
       cash_out: parseFloat(beli.total_beli_cash || 0),
       kredit_out: parseFloat(beli.total_beli_kredit || 0)
     });
+    
+    current.setDate(current.getDate() + 1);
   }
   return rekap;
 });
@@ -201,14 +219,16 @@ const bulananChartData = computed(() => {
 // ------------------------------------
 // STATE LAPORAN TAHUNAN
 // ------------------------------------
-const tahunFilter = ref(new Date().getFullYear());
+const firstDayOfYear = new Date(now.getFullYear(), 0, 1);
+const startDateTahunan = ref(firstDayOfYear.toISOString().split('T')[0]);
+const endDateTahunan = ref(now.toISOString().split('T')[0]);
 const isLoadingTahunan = ref(false);
 const tahunanData = ref({ penjualan: [], pembelian: [] });
 
 const fetchLaporanTahunan = async () => {
   isLoadingTahunan.value = true;
   try {
-    const res = await api.get(`/laporan/tahunan?tahun=${tahunFilter.value}`);
+    const res = await api.get(`/laporan/tahunan?startDate=${startDateTahunan.value}&endDate=${endDateTahunan.value}`);
     tahunanData.value = res.data;
   } catch (err) {
     console.error('Error fetching tahunan:', err);
@@ -217,17 +237,43 @@ const fetchLaporanTahunan = async () => {
   }
 };
 
+const setPresetTahunan = (preset) => {
+  const end = new Date();
+  let start = new Date();
+  
+  if (preset === 'Tahun Ini') {
+    start = new Date(end.getFullYear(), 0, 1);
+  } else if (preset === '365 Hari') {
+    start.setDate(end.getDate() - 365);
+  }
+  
+  startDateTahunan.value = start.toISOString().split('T')[0];
+  endDateTahunan.value = end.toISOString().split('T')[0];
+  fetchLaporanTahunan();
+};
+
 const rekapBulananTahunan = computed(() => {
   const rekap = [];
-  for (let i = 1; i <= 12; i++) {
-    const jual = tahunanData.value.penjualan.find(p => parseInt(p.bulan) === i) || {};
-    const beli = tahunanData.value.pembelian.find(p => parseInt(p.bulan) === i) || {};
+  let current = new Date(startDateTahunan.value);
+  const end = new Date(endDateTahunan.value);
+  
+  current.setDate(1);
+  end.setDate(1); 
+  
+  while (current <= end) {
+    const monthStr = current.toISOString().split('T')[0].substring(0, 7);
+    const jual = tahunanData.value.penjualan.find(p => p.bulan === monthStr) || {};
+    const beli = tahunanData.value.pembelian.find(p => p.bulan === monthStr) || {};
+    
     rekap.push({
-      bulan_nama: months[i-1],
+      bulan_nama: months[current.getMonth()] + ' ' + current.getFullYear(),
+      bulan_key: monthStr,
       omzet: parseFloat(jual.total_omzet || 0),
       keuntungan: parseFloat(jual.total_keuntungan || 0),
       pengeluaran: parseFloat(beli.total_pengeluaran || 0)
     });
+    
+    current.setMonth(current.getMonth() + 1);
   }
   return rekap;
 });
@@ -260,7 +306,7 @@ const tahunanChartData = computed(() => {
 // STATE LAPORAN SHU ANGGOTA
 // ------------------------------------
 // Parameter SHU (Sesuai Foto Requirement)
-const totalLabaSHU = ref(494582400); 
+const totalSHU = ref(494582400); // Rp. 494.582.400 sesuai gambar
 const porsiSimpanan = ref(50); // Persentase
 const porsiBelanja = ref(25); // Persentase
 const porsiBagiRata = ref(25); // Persentase
@@ -270,96 +316,119 @@ const isLoadingSHU = ref(false);
 const dataAnggotaAll = ref([]);
 const riwayatBelanjaAll = ref([]);
 
-const fetchDataSHU = async () => {
+const totalPembelianSeluruhAnggota = computed(() => {
+  return simulasiAnggota.value.reduce((sum, item) => sum + parseFloat(item.belanja || 0), 0);
+});
+
+const totalJasaBelanjaSeluruhAnggota = computed(() => {
+  return simulasiAnggota.value.reduce((sum, item) => sum + parseFloat(item.shu_belanja || 0), 0);
+});
+
+const fetchDataSHU = () => {
+  // Langsung panggil hitung dari backend
+  hitungSimulasiSHU();
+};
+
+const hitungSimulasiSHU = async () => {
+  isLoadingSHU.value = true;
   try {
-    const [resAnggota, resTrx] = await Promise.all([
-      api.get('/anggota'),
-      api.get('/transaksi')
-    ]);
-    dataAnggotaAll.value = resAnggota.data;
-    riwayatBelanjaAll.value = resTrx.data;
+    const res = await api.post('/laporan/shu', {
+      total_shu: totalSHU.value,
+      porsi_simpanan: porsiSimpanan.value,
+      porsi_belanja: porsiBelanja.value,
+      porsi_bagi_rata: porsiBagiRata.value
+    });
+    simulasiAnggota.value = res.data;
   } catch (error) {
-    console.error('Error fetching SHU data:', error);
+    console.error('Error calculating SHU:', error);
+    alert('Gagal menghitung SHU dari server.');
+  } finally {
+    isLoadingSHU.value = false;
   }
 };
 
-const hitungSimulasiSHU = () => {
-  isLoadingSHU.value = true;
-  
-  // 1. Hitung Total Alokasi (Jumlah Jasa)
-  const totalSHU = totalLabaSHU.value;
-  const jasaSimpananTotal = totalSHU * (porsiSimpanan.value / 100);
-  const jasaBelanjaTotal = totalSHU * (porsiBelanja.value / 100);
-  const jasaBagiRataTotal = totalSHU * (porsiBagiRata.value / 100);
-  
-  // 2. Agregasi Transaksi Belanja
-  const mapBelanja = {};
-  let jumlahPembelianAnggota = 0; // Total seluruh belanjaan
-  riwayatBelanjaAll.value.forEach(trx => {
-    if (trx.nrp && parseFloat(trx.total_bayar) > 0) {
-      const bayar = parseFloat(trx.total_bayar);
-      mapBelanja[trx.nrp] = (mapBelanja[trx.nrp] || 0) + bayar;
-      jumlahPembelianAnggota += bayar;
-    }
-  });
-
-  // 3. Persiapkan Anggota Aktif dan Simpanan
-  const activeMembers = dataAnggotaAll.value.filter(a => a.is_active);
-  const jumlahAnggotaKoperasi = activeMembers.length || 1;
-  let jumlahSimpananAnggota = 0;
-
-  activeMembers.forEach(anggota => {
-    // Karena kolom simpanan belum ada di DB, kita mock Rp 925.000 untuk simulasi sesuai foto
-    anggota.simpanan = anggota.simpanan || 925000; 
-    jumlahSimpananAnggota += anggota.simpanan;
-  });
-
-  // 4. Hitung Jasa Bagi Rata (Sama untuk semua)
-  const jasaBagiRataPerOrang = jasaBagiRataTotal / jumlahAnggotaKoperasi;
-
-  // 5. Kalkulasi Akhir per Anggota
-  simulasiAnggota.value = activeMembers.map(anggota => {
-    const jumlahSimpanan = anggota.simpanan;
-    const jumlahBelanjaan = mapBelanja[anggota.nrp] || 0;
-    
-    // Rumus: (Jumlah Simpanan x Jasa Simpanan Anggota) / Jumlah Simpanan Anggota
-    const shuSimpanan = jumlahSimpananAnggota > 0 
-      ? (jumlahSimpanan * jasaSimpananTotal) / jumlahSimpananAnggota 
-      : 0;
-      
-    // Rumus: (Jumlah Belanjaan x Jasa Belanja Anggota) / Jumlah Pembelian Anggota
-    const shuBelanja = jumlahPembelianAnggota > 0 
-      ? (jumlahBelanjaan * jasaBelanjaTotal) / jumlahPembelianAnggota 
-      : 0;
-      
-    const shuBagiRata = jasaBagiRataPerOrang;
-    
-    // TOTAL SHU = Jasa Simpanan + Jasa Belanjaan + Jasa Bagi Rata
-    const jumlahJasa = shuSimpanan + shuBelanja + shuBagiRata;
-
-    return {
-      nrp: anggota.nrp,
-      nama: anggota.nama,
-      pangkat: anggota.pangkat || '-',
-      simpanan: jumlahSimpanan,
-      belanja: jumlahBelanjaan,
-      shu_simpanan: shuSimpanan,
-      shu_belanja: shuBelanja,
-      shu_bagirata: shuBagiRata,
-      total_diterima: jumlahJasa
-    };
-  });
-  
-  simulasiAnggota.value.sort((a, b) => b.total_diterima - a.total_diterima);
-  isLoadingSHU.value = false;
-};
-
 
 // ------------------------------------
-// EXPORT TO EXCEL MOCK
+// EXPORT TO EXCEL
 // ------------------------------------
 const exportToExcel = (jenis) => {
-  alert(`Fungsi "Export to Excel" untuk Laporan ${jenis} sedang dalam tahap pengembangan backend. Data siap diunduh segera!`);
+  if (jenis === 'Bulanan') {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['PRIMKOP KARTIKA TRIBUANA IV'],
+      ['UNIT SWALAYAN'],
+      [],
+      ['', '', 'Laporan Harian Unit Swalayan'],
+      ['', '', `Periode : ${startDateBulanan.value} s.d ${endDateBulanan.value}`],
+      [],
+      ['No', 'Tanggal', 'Jual Cash', 'Jual Kredit', 'Beli Cash', 'Beli Kredit', 'Retur Beli']
+    ]);
+
+    let rowIndex = 8;
+    let totalJualCash = 0;
+    let totalJualKredit = 0;
+    let totalBeliCash = 0;
+    let totalBeliKredit = 0;
+    let totalRetur = 0;
+
+    rekapHarianBulanan.value.forEach((item, index) => {
+      // Format tanggal ke DD-MM-YYYY
+      const parts = item.tanggal.split('-');
+      const formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+
+      XLSX.utils.sheet_add_aoa(ws, [[
+        index + 1,
+        formattedDate,
+        item.cash_in,
+        item.kredit_in,
+        item.cash_out,
+        item.kredit_out,
+        0
+      ]], { origin: `A${rowIndex}` });
+      
+      totalJualCash += item.cash_in;
+      totalJualKredit += item.kredit_in;
+      totalBeliCash += item.cash_out;
+      totalBeliKredit += item.kredit_out;
+      
+      rowIndex++;
+    });
+
+    // Jumlah
+    XLSX.utils.sheet_add_aoa(ws, [[
+      '', 'Jumlah', totalJualCash, totalJualKredit, totalBeliCash, totalBeliKredit, totalRetur
+    ]], { origin: `A${rowIndex}` });
+    
+    rowIndex += 3;
+    
+    // TTD
+    const today = new Date();
+    const tglTTD = `Batujajar, ${today.getDate()} ${months[today.getMonth()]} ${today.getFullYear()}`;
+    
+    XLSX.utils.sheet_add_aoa(ws, [[
+      '', 'Mengetahui', '', '', '', tglTTD
+    ]], { origin: `A${rowIndex}` });
+    
+    rowIndex++;
+    XLSX.utils.sheet_add_aoa(ws, [[
+      '', 'Primer Koperasi Kartika Tribuana IV', '', '', '', 'Urusan Usaha'
+    ]], { origin: `A${rowIndex}` });
+    
+    rowIndex++;
+    XLSX.utils.sheet_add_aoa(ws, [[
+      '', 'Ketua'
+    ]], { origin: `A${rowIndex}` });
+    
+    rowIndex += 4;
+    XLSX.utils.sheet_add_aoa(ws, [[
+      '', '___________________________', '', '', '', '___________________________'
+    ]], { origin: `A${rowIndex}` });
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Laporan_Harian');
+    XLSX.writeFile(wb, `Laporan_Harian_Swalayan_${startDateBulanan.value}_sd_${endDateBulanan.value}.xlsx`);
+  } else {
+    alert(`Fungsi "Export to Excel" untuk Laporan ${jenis} sedang dalam tahap pengembangan.`);
+  }
 };
 
 
@@ -561,20 +630,26 @@ onMounted(() => {
            ============================================== -->
       <div v-if="activeTab === 'Laporan Bulanan'" class="flex-1 flex flex-col gap-6">
         <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200 flex justify-between items-end flex-shrink-0">
-          <div class="flex gap-4 items-end">
-            <div class="w-48">
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Bulan</label>
-              <select v-model="bulanFilter" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
-                <option v-for="(m, i) in months" :key="i" :value="i+1">{{ m }}</option>
-              </select>
+          <div class="flex gap-4 items-end flex-wrap">
+            <div class="w-40">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Dari Tanggal</label>
+              <input type="date" v-model="startDateBulanan" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
             </div>
-            <div class="w-32">
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Tahun</label>
-              <input type="number" v-model="tahunBulanFilter" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
+            <div class="w-40">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Sampai Tanggal</label>
+              <input type="date" v-model="endDateBulanan" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
             </div>
             <button @click="fetchLaporanBulanan" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md text-sm h-[38px] transition-colors">
-              Lihat Rekap Bulanan
+              Terapkan
             </button>
+            <div class="flex gap-2 ml-2 h-[38px] items-center">
+              <button @click="setPresetBulanan('Bulan Ini')" class="border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold py-1.5 px-3 rounded-md text-xs transition-colors bg-white">
+                Bulan Ini
+              </button>
+              <button @click="setPresetBulanan('30 Hari')" class="border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold py-1.5 px-3 rounded-md text-xs transition-colors bg-white">
+                30 Hari Terakhir
+              </button>
+            </div>
           </div>
           <button @click="exportToExcel('Bulanan')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md text-sm h-[38px] transition-colors flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -592,7 +667,7 @@ onMounted(() => {
 
         <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex-1 flex flex-col min-h-[400px]">
           <div class="p-4 border-b border-slate-200 bg-slate-50">
-            <h3 class="font-bold text-slate-700">Rekapitulasi Harian (Tanggal 1 - 31)</h3>
+            <h3 class="font-bold text-slate-700">Rekapitulasi Harian</h3>
           </div>
           <div class="overflow-auto flex-1">
             <table class="w-full text-left text-sm text-slate-600">
@@ -637,14 +712,26 @@ onMounted(() => {
            ============================================== -->
       <div v-if="activeTab === 'Laporan Tahunan'" class="flex-1 flex flex-col gap-6">
         <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200 flex justify-between items-end flex-shrink-0">
-          <div class="flex gap-4 items-end">
-            <div class="w-32">
-              <label class="block text-xs font-semibold text-slate-600 mb-1">Tahun</label>
-              <input type="number" v-model="tahunFilter" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
+          <div class="flex gap-4 items-end flex-wrap">
+            <div class="w-40">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Dari Tanggal</label>
+              <input type="date" v-model="startDateTahunan" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
+            </div>
+            <div class="w-40">
+              <label class="block text-xs font-semibold text-slate-600 mb-1">Sampai Tanggal</label>
+              <input type="date" v-model="endDateTahunan" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 text-sm">
             </div>
             <button @click="fetchLaporanTahunan" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md text-sm h-[38px] transition-colors">
-              Lihat Rekap Tahunan
+              Terapkan
             </button>
+            <div class="flex gap-2 ml-2 h-[38px] items-center">
+              <button @click="setPresetTahunan('Tahun Ini')" class="border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold py-1.5 px-3 rounded-md text-xs transition-colors bg-white">
+                Tahun Ini
+              </button>
+              <button @click="setPresetTahunan('365 Hari')" class="border border-slate-300 hover:bg-slate-100 text-slate-700 font-semibold py-1.5 px-3 rounded-md text-xs transition-colors bg-white">
+                365 Hari Terakhir
+              </button>
+            </div>
           </div>
           <button @click="exportToExcel('Tahunan')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md text-sm h-[38px] transition-colors flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -662,7 +749,7 @@ onMounted(() => {
 
         <div class="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden flex-1 flex flex-col min-h-[400px]">
           <div class="p-4 border-b border-slate-200 bg-slate-50">
-            <h3 class="font-bold text-slate-700">Rekapitulasi Bulanan (Januari - Desember)</h3>
+            <h3 class="font-bold text-slate-700">Rekapitulasi Bulanan</h3>
           </div>
           <div class="overflow-auto flex-1">
             <table class="w-full text-left text-sm text-slate-600">
@@ -693,51 +780,35 @@ onMounted(() => {
            ============================================== -->
       <div v-if="activeTab === 'Laporan SHU Anggota'" class="max-w-4xl mx-auto h-full overflow-auto w-full">
         
-        <div class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl shadow-md p-6 text-white mb-6">
-          <div class="flex justify-between items-start mb-1">
-            <h2 class="font-bold text-xl">Laporan Alokasi SHU Anggota</h2>
-            <button @click="exportToExcel('SHU')" class="bg-white/20 hover:bg-white/30 text-white font-bold py-1.5 px-4 rounded text-xs transition-colors flex items-center gap-2 border border-white/30">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-              Export to Excel
-            </button>
-          </div>
-          <p class="text-blue-100 text-sm mb-6">Lacak dan hitung pembagian Sisa Hasil Usaha (SHU) tiap anggota berdasarkan persentase partisipasi belanja mereka di koperasi.</p>
-          
-          <div class="grid grid-cols-4 gap-4 bg-white/10 p-5 rounded-lg border border-white/20 backdrop-blur-sm">
-            <div class="col-span-4 mb-2">
-              <label class="block text-xs font-semibold text-blue-100 mb-1">Total Alokasi SHU Anggota (Rp)</label>
-              <input type="number" v-model="totalLabaSHU" class="w-full bg-white text-slate-800 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 font-bold text-lg">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-blue-100 mb-1">Porsi Jasa Simpanan (%)</label>
-              <input type="number" v-model="porsiSimpanan" min="0" max="100" class="w-full bg-white text-slate-800 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 font-bold">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-blue-100 mb-1">Porsi Jasa Belanjaan (%)</label>
-              <input type="number" v-model="porsiBelanja" min="0" max="100" class="w-full bg-white text-slate-800 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 font-bold">
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-blue-100 mb-1">Porsi Jasa Bagi Rata (%)</label>
-              <input type="number" v-model="porsiBagiRata" min="0" max="100" class="w-full bg-white text-slate-800 px-3 py-2 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 font-bold">
-            </div>
-            <div class="flex flex-col justify-end">
-              <div v-if="(porsiSimpanan + porsiBelanja + porsiBagiRata) !== 100" class="text-xs text-red-200 font-bold mb-2">Total harus 100%!</div>
-              <div v-else class="text-xs text-green-200 font-bold mb-2">Porsi Valid (100%)</div>
-            </div>
-          </div>
-          
-          <div class="mt-4 flex justify-end">
-            <button @click="hitungSimulasiSHU" :disabled="(porsiSimpanan + porsiBelanja + porsiBagiRata) !== 100" class="bg-yellow-400 hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed text-yellow-900 font-bold py-2 px-6 rounded-md transition-colors shadow-sm">
-              Hitung / Perbarui Alokasi SHU
-            </button>
-          </div>
-        </div>
+
 
         <div v-if="simulasiAnggota.length > 0" class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-          <div class="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-            <div>
-              <h3 class="font-bold text-lg text-slate-800">Daftar Penerima SHU Anggota (Sesuai Formula Primer)</h3>
-              <p class="text-xs text-slate-500">Rumus: Jumlah Jasa = Jasa Simpanan + Jasa Belanjaan + Jasa Bagi Rata</p>
+          <div class="p-6 border-b border-slate-100 bg-slate-50 flex flex-col gap-4">
+            <div class="flex justify-between items-center">
+              <div>
+                <h3 class="font-bold text-lg text-slate-800">Daftar Penerima SHU Anggota</h3>
+                <p class="text-xs text-slate-500">Menampilkan rincian Jumlah Pembelian, Jasa Belanja, dan Kalkulasi SHU per anggota.</p>
+              </div>
+              <button @click="exportToExcel('SHU')" class="bg-green-600 hover:bg-green-700 text-white font-bold py-1.5 px-4 rounded text-xs transition-colors flex items-center gap-2 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                Export to Excel
+              </button>
+            </div>
+            
+            <!-- Ringkasan Informasi -->
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mt-2">
+              <div class="bg-blue-50 border border-blue-100 p-4 rounded-lg shadow-sm">
+                <p class="text-xs text-blue-600 font-bold uppercase tracking-wider mb-1">Total Pembelian Seluruh Anggota</p>
+                <p class="text-xl font-black text-blue-800">{{ formatRupiah(totalPembelianSeluruhAnggota) }}</p>
+              </div>
+              <div class="bg-indigo-50 border border-indigo-100 p-4 rounded-lg shadow-sm">
+                <p class="text-xs text-indigo-600 font-bold uppercase tracking-wider mb-1">Total Jasa Belanja (Alokasi)</p>
+                <p class="text-xl font-black text-indigo-800">{{ formatRupiah(totalJasaBelanjaSeluruhAnggota) }}</p>
+              </div>
+              <div class="bg-green-50 border border-green-100 p-4 rounded-lg shadow-sm">
+                <p class="text-xs text-green-600 font-bold uppercase tracking-wider mb-1">Jumlah Anggota</p>
+                <p class="text-xl font-black text-green-800">{{ simulasiAnggota.length }} <span class="text-sm font-medium">Orang</span></p>
+              </div>
             </div>
           </div>
           
