@@ -29,7 +29,7 @@ const getAnggotaByNrp = async (req, res) => {
 
 const createAnggota = async (req, res) => {
   try {
-    const { nrp, nama, pangkat } = req.body;
+    const { nrp, nama, pangkat, jenis_anggota } = req.body;
     
     if (!nrp || !nama || !pangkat) {
       return res.status(400).json({ message: 'NRP, nama, dan pangkat wajib diisi' });
@@ -40,9 +40,11 @@ const createAnggota = async (req, res) => {
       return res.status(400).json({ message: 'NRP sudah terdaftar' });
     }
     
+    const finalJenisAnggota = jenis_anggota || 'Militer';
+    
     await db.execute(
-      'INSERT INTO Anggota (nrp, nama, pangkat) VALUES (?, ?, ?)',
-      [nrp, nama, pangkat]
+      'INSERT INTO Anggota (nrp, nama, pangkat, jenis_anggota) VALUES (?, ?, ?, ?)',
+      [nrp, nama, pangkat, finalJenisAnggota]
     );
     res.status(201).json({ message: 'Anggota berhasil ditambahkan' });
   } catch (error) {
@@ -54,7 +56,7 @@ const createAnggota = async (req, res) => {
 const updateAnggota = async (req, res) => {
   try {
     const { nrp } = req.params;
-    const { nama, pangkat, is_active } = req.body;
+    const { nama, pangkat, is_active, jenis_anggota } = req.body;
     
     const [existingRows] = await db.execute('SELECT * FROM Anggota WHERE nrp = ?', [nrp]);
     if (existingRows.length === 0) {
@@ -75,6 +77,10 @@ const updateAnggota = async (req, res) => {
     if (is_active !== undefined) {
       updateFields.push('is_active = ?');
       params.push(is_active);
+    }
+    if (jenis_anggota !== undefined) {
+      updateFields.push('jenis_anggota = ?');
+      params.push(jenis_anggota);
     }
     
     if (updateFields.length === 0) {

@@ -66,3 +66,21 @@ exports.deleteSupplier = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+exports.getRiwayatBarangSupplier = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [results] = await db.execute(`
+      SELECT DISTINCT dp.id_barang 
+      FROM detail_pembelian dp 
+      JOIN pembelian p ON dp.id_pembelian = p.id_pembelian 
+      WHERE p.id_supplier = ? AND dp.id_barang IS NOT NULL
+    `, [id]);
+    const ids = results.map(r => r.id_barang);
+    res.json(ids);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+

@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue';
 import api from '../services/api';
 
 const searchQuery = ref('');
+const activeTab = ref('Semua');
 const daftarAnggota = ref([]);
 const isLoading = ref(false);
 const errorMessage = ref('');
@@ -15,7 +16,8 @@ const idSedangDiedit = ref(null);
 const formAnggota = ref({
   nrp: '',
   nama: '',
-  pangkat: ''
+  pangkat: '',
+  jenis_anggota: 'Militer'
 });
 
 // Notifikasi
@@ -45,8 +47,8 @@ const fetchAnggota = async () => {
     // Silent fail if endpoint doesn't exist yet, just mock for now
     if (error.response?.status === 404) {
       daftarAnggota.value = [
-        { id_anggota: 1, nrp: '123456789', nama: 'Sertu Budi', pangkat: 'Sertu' },
-        { id_anggota: 2, nrp: '198701012010121001', nama: 'Agus Santoso', pangkat: 'III/b' }
+        { id_anggota: 1, nrp: '123456789', nama: 'Sertu Budi', pangkat: 'Sertu', jenis_anggota: 'Militer' },
+        { id_anggota: 2, nrp: '198701012010121001', nama: 'Agus Santoso', pangkat: 'III/b', jenis_anggota: 'PNS' }
       ];
     } else {
       errorMessage.value = 'Gagal memuat data anggota.';
@@ -61,18 +63,26 @@ onMounted(() => {
 });
 
 const dataDitampilkan = computed(() => {
-  if (!searchQuery.value) return daftarAnggota.value;
-  const query = searchQuery.value.toLowerCase();
-  return daftarAnggota.value.filter(a => 
-    (a.nama && a.nama.toLowerCase().includes(query)) || 
-    (a.nrp && a.nrp.includes(query))
-  );
+  let filtered = daftarAnggota.value;
+  
+  if (activeTab.value !== 'Semua') {
+    filtered = filtered.filter(a => a.jenis_anggota === activeTab.value);
+  }
+  
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase();
+    filtered = filtered.filter(a => 
+      (a.nama && a.nama.toLowerCase().includes(query)) || 
+      (a.nrp && a.nrp.includes(query))
+    );
+  }
+  return filtered;
 });
 
 const bukaModalTambah = () => {
   modalMode.value = 'tambah';
   idSedangDiedit.value = null;
-  formAnggota.value = { nrp: '', nama: '', pangkat: '' };
+  formAnggota.value = { nrp: '', nama: '', pangkat: '', jenis_anggota: 'Militer' };
   isModalOpen.value = true;
 };
 
@@ -134,9 +144,14 @@ const konfirmasiHapus = async () => {
       </button>
     </header>
 
-    <!-- Toolbar -->
-    <div class="px-8 py-4 border-b border-slate-100 flex gap-4 bg-slate-50 flex-shrink-0">
-      <div class="relative w-full max-w-md">
+    <!-- Toolbar & Tabs -->
+    <div class="px-8 py-4 border-b border-slate-100 flex flex-col sm:flex-row gap-4 bg-slate-50 flex-shrink-0 justify-between items-start sm:items-center">
+      <div class="flex gap-1 bg-slate-200/50 p-1 rounded-lg">
+        <button @click="activeTab = 'Semua'" :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'Semua' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700']">Semua</button>
+        <button @click="activeTab = 'Militer'" :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'Militer' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700']">Militer</button>
+        <button @click="activeTab = 'PNS'" :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'PNS' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700']">PNS</button>
+      </div>
+      <div class="relative w-full sm:max-w-md">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-3 top-2.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
         <input type="text" v-model="searchQuery" placeholder="Cari nama atau NRP..." class="w-full border border-slate-300 pl-10 pr-4 py-2 rounded-md text-sm text-slate-800 focus:outline-none focus:border-blue-600 bg-white">
       </div>
@@ -151,6 +166,7 @@ const konfirmasiHapus = async () => {
               <th class="px-5 py-4 w-1/4">NRP</th>
               <th class="px-5 py-4 w-1/3">Nama Lengkap</th>
               <th class="px-5 py-4">Pangkat</th>
+              <th class="px-5 py-4">Jenis</th>
               <th class="px-5 py-4 w-24 text-center">Aksi</th>
             </tr>
           </thead>
@@ -162,12 +178,16 @@ const konfirmasiHapus = async () => {
               <td colspan="4" class="px-5 py-12 text-center text-red-500">{{ errorMessage }}</td>
             </tr>
             <tr v-else-if="dataDitampilkan.length === 0">
-              <td colspan="4" class="px-5 py-12 text-center text-slate-400">Data anggota tidak ditemukan.</td>
+              <td colspan="5" class="px-5 py-12 text-center text-slate-400">Data anggota tidak ditemukan.</td>
             </tr>
             <tr v-else v-for="item in dataDitampilkan" :key="item.id_anggota" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
               <td class="px-5 py-3 font-medium text-slate-800">{{ item.nrp }}</td>
               <td class="px-5 py-3 text-slate-800">{{ item.nama }}</td>
               <td class="px-5 py-3 text-slate-700">{{ item.pangkat }}</td>
+              <td class="px-5 py-3 text-slate-700">
+                <span v-if="item.jenis_anggota === 'PNS'" class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full bg-emerald-100 text-emerald-700">PNS</span>
+                <span v-else class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full bg-blue-100 text-blue-700">Militer</span>
+              </td>
               <td class="px-5 py-3 text-center">
                 <div class="flex justify-center gap-2">
                   <button @click="bukaModalEdit(item)" class="text-slate-400 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 p-1.5 rounded transition-colors" title="Edit">
@@ -204,6 +224,13 @@ const konfirmasiHapus = async () => {
           <div>
             <label class="block text-sm font-semibold text-slate-700 mb-1">Pangkat</label>
             <input type="text" v-model="formAnggota.pangkat" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600">
+          </div>
+          <div>
+            <label class="block text-sm font-semibold text-slate-700 mb-1">Jenis Keanggotaan</label>
+            <select v-model="formAnggota.jenis_anggota" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 bg-white">
+              <option value="Militer">Militer</option>
+              <option value="PNS">PNS</option>
+            </select>
           </div>
         </div>
         <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">

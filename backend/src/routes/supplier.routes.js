@@ -7,6 +7,7 @@ router.use(verifyToken);
 // Anggap saja semua admin bisa melihat supplier, tapi idealnya dibatasi
 router.get('/', supplierController.getAllSuppliers);
 router.get('/:id', supplierController.getSupplierById);
+router.get('/:id/barang-riwayat', supplierController.getRiwayatBarangSupplier);
 router.post('/', authorizeRole(['Admin Pembelian', 'Super Admin', 'Admin']), supplierController.createSupplier);
 router.put('/:id', authorizeRole(['Admin Pembelian', 'Super Admin', 'Admin']), supplierController.updateSupplier);
 router.delete('/:id', authorizeRole(['Admin Pembelian', 'Super Admin', 'Admin']), supplierController.deleteSupplier);

@@ -272,12 +272,15 @@ const formatRupiah = (angka) => {
       </div>
       <select v-model="kategoriTerpilih" class="w-64 border border-slate-300 px-4 py-2 rounded-md text-sm text-slate-700 focus:outline-none focus:border-blue-600 bg-white cursor-pointer">
         <option>Semua kategori</option>
-        <option>Sembako</option>
-        <option>Minuman</option>
-        <option>Makanan Ringan</option>
-        <option>Perawatan Diri</option>
-        <option>Kebutuhan Rumah</option>
+        <option>FOOD</option>
+        <option>NON FOOD</option>
+        <option>ELEKTRO</option>
+        <option>PECAH BELAH</option>
         <option>ATK</option>
+        <option>KOSMETIK</option>
+        <option>OBAT</option>
+        <option>ABRI</option>
+        <option>RAJUTAN</option>
       </select>
     </div>
 
@@ -374,7 +377,18 @@ const formatRupiah = (angka) => {
             
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-1">Golongan</label>
-              <input type="text" v-model="formBarang.golongan" placeholder="Masukkan golongan (kategori)" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600">
+              <select v-model="formBarang.golongan" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 bg-white">
+                <option value="">Pilih Kategori</option>
+                <option value="FOOD">FOOD</option>
+                <option value="NON FOOD">NON FOOD</option>
+                <option value="ELEKTRO">ELEKTRO</option>
+                <option value="PECAH BELAH">PECAH BELAH</option>
+                <option value="ATK">ATK</option>
+                <option value="KOSMETIK">KOSMETIK</option>
+                <option value="OBAT">OBAT</option>
+                <option value="ABRI">ABRI</option>
+                <option value="RAJUTAN">RAJUTAN</option>
+              </select>
             </div>
 
             <div>

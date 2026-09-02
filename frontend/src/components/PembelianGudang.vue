@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import api from '../services/api';
 import { useAuthStore } from '../stores/auth';
 
@@ -27,6 +27,74 @@ const formPO = ref({
 const barangPilihan = ref('');
 const jumlahBarang = ref(1);
 const hargaSatuan = ref(0);
+
+const searchSupplierText = ref('');
+const isSupplierDropdownOpen = ref(false);
+
+const filteredSuppliers = computed(() => {
+  if (!searchSupplierText.value) return daftarSupplier.value;
+  return daftarSupplier.value.filter(s => 
+    s.nama_supplier.toLowerCase().includes(searchSupplierText.value.toLowerCase())
+  );
+});
+
+const selectSupplier = (s) => {
+  formPO.value.id_supplier = s.id_supplier;
+  searchSupplierText.value = s.nama_supplier;
+  isSupplierDropdownOpen.value = false;
+};
+
+const searchBarangText = ref('');
+const isBarangDropdownOpen = ref(false);
+
+const filteredBarangPO = computed(() => {
+  if (!searchBarangText.value) return daftarBarangTerorganisir.value;
+  return daftarBarangTerorganisir.value.filter(b => 
+    b.nama_barang.toLowerCase().includes(searchBarangText.value.toLowerCase()) || 
+    (b.barcode && b.barcode.toLowerCase().includes(searchBarangText.value.toLowerCase()))
+  );
+});
+
+const selectBarangPO = (b) => {
+  barangPilihan.value = b.id_barang;
+  searchBarangText.value = b.nama_barang;
+  hargaSatuan.value = b.harga_beli || 0;
+  isBarangDropdownOpen.value = false;
+};
+
+const riwayatBarangSupplier = ref([]);
+
+watch(() => formPO.value.id_supplier, async (newVal) => {
+  if (newVal) {
+    try {
+      const res = await api.get(`/supplier/${newVal}/barang-riwayat`);
+      riwayatBarangSupplier.value = res.data;
+    } catch (e) {
+      console.error('Gagal memuat riwayat barang supplier', e);
+      riwayatBarangSupplier.value = [];
+    }
+  } else {
+    riwayatBarangSupplier.value = [];
+  }
+});
+
+const daftarBarangTerorganisir = computed(() => {
+  if (!daftarBarang.value) return [];
+  if (riwayatBarangSupplier.value.length === 0) return daftarBarang.value;
+
+  const langganan = [];
+  const lainnya = [];
+  
+  daftarBarang.value.forEach(b => {
+    if (riwayatBarangSupplier.value.includes(b.id_barang)) {
+      langganan.push(b);
+    } else {
+      lainnya.push(b);
+    }
+  });
+  
+  return [...langganan, ...lainnya];
+});
 
 // Notifikasi
 const isNotifModalOpen = ref(false);
@@ -325,6 +393,7 @@ const tambahItemPO = () => {
   
   // Reset input
   barangPilihan.value = '';
+  searchBarangText.value = '';
   jumlahBarang.value = 1;
   hargaSatuan.value = 0;
 };
@@ -378,6 +447,8 @@ const simpanPOBaru = async () => {
     
     // Reset Form & pindah tab
     formPO.value = { kategori: 'Swalayan', id_supplier: '', metode_pembayaran: 'Tunai', jatuh_tempo: '', items: [] };
+    searchSupplierText.value = '';
+    searchBarangText.value = '';
     activeTab.value = 'Riwayat PO';
     await fetchData();
   } catch (error) {
@@ -587,10 +658,28 @@ const formatDate = (dateString) => {
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div class="lg:col-span-2">
                 <label class="block text-sm font-semibold text-slate-700 mb-1">Supplier</label>
-                <select v-model="formPO.id_supplier" class="w-full border border-slate-300 px-3 py-2.5 rounded-md focus:outline-none focus:border-blue-600 bg-white text-sm">
-                  <option disabled value="">-- Pilih Supplier --</option>
-                  <option v-for="s in daftarSupplier" :key="s.id_supplier" :value="s.id_supplier">{{ s.nama_supplier }}</option>
-                </select>
+                <div class="relative">
+                  <input 
+                    type="text" 
+                    v-model="searchSupplierText" 
+                    @focus="isSupplierDropdownOpen = true"
+                    @blur="setTimeout(() => isSupplierDropdownOpen = false, 200)"
+                    placeholder="Ketik untuk mencari supplier..."
+                    class="w-full border border-slate-300 px-3 py-2.5 rounded-md focus:outline-none focus:border-blue-600 bg-white text-sm"
+                  >
+                  <ul v-if="isSupplierDropdownOpen && filteredSuppliers.length > 0" class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    <li 
+                      v-for="s in filteredSuppliers" :key="s.id_supplier"
+                      @mousedown="selectSupplier(s)"
+                      class="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-slate-100 text-sm text-slate-700"
+                    >
+                      {{ s.nama_supplier }}
+                    </li>
+                  </ul>
+                  <div v-if="isSupplierDropdownOpen && filteredSuppliers.length === 0" class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg p-3 text-sm text-slate-500 text-center">
+                    Supplier tidak ditemukan.
+                  </div>
+                </div>
               </div>
               <div class="lg:col-span-2">
                 <label class="block text-sm font-semibold text-slate-700 mb-1">Kategori Tujuan</label>
@@ -626,13 +715,35 @@ const formatDate = (dateString) => {
                       Barang Baru
                     </button>
                   </div>
-                  <select v-model="barangPilihan" @change="hargaSatuan = (daftarBarang.find(b => b.id_barang === barangPilihan)?.harga_beli || 0)" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 bg-white text-sm">
-                    <option disabled value="">-- Cari Barang --</option>
-                    <option v-for="b in daftarBarang" :key="b.id_barang" :value="b.id_barang">
-                      {{ b.nama_barang }} (Gudang: {{ b.stok_gudang || 0 }} | Toko: {{ formPO.kategori === 'Swalayan' ? (b.stok_swalayan || 0) : (b.stok_grosir || 0) }})
-                      {{ ((b.stok_gudang || 0) + (b.stok_swalayan || 0) + (b.stok_grosir || 0) <= (b.stok_minimal || 10)) ? ' ⚠️ BUTUH PO' : '' }}
-                    </option>
-                  </select>
+                  <div class="relative">
+                    <input 
+                      type="text" 
+                      v-model="searchBarangText" 
+                      @focus="isBarangDropdownOpen = true"
+                      @blur="setTimeout(() => isBarangDropdownOpen = false, 200)"
+                      placeholder="Ketik nama atau barcode barang..."
+                      class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 bg-white text-sm"
+                    >
+                    <ul v-if="isBarangDropdownOpen && filteredBarangPO.length > 0" class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      <li 
+                        v-for="b in filteredBarangPO" :key="b.id_barang"
+                        @mousedown="selectBarangPO(b)"
+                        class="px-4 py-2 hover:bg-blue-50 cursor-pointer border-b border-slate-100 text-sm"
+                      >
+                        <div class="font-medium text-slate-800">
+                          <span v-if="riwayatBarangSupplier.includes(b.id_barang)" class="text-blue-600 font-bold text-[10px] bg-blue-100 px-1 rounded mr-1">LANGGANAN</span>
+                          {{ b.nama_barang }}
+                        </div>
+                        <div class="text-xs text-slate-500 mt-1">
+                          (Gudang: {{ b.stok_gudang || 0 }} | Toko: {{ formPO.kategori === 'Swalayan' ? (b.stok_swalayan || 0) : (b.stok_grosir || 0) }})
+                          <span v-if="((b.stok_gudang || 0) + (b.stok_swalayan || 0) + (b.stok_grosir || 0) <= (b.stok_minimal || 10))" class="text-red-500 font-bold">⚠️ BUTUH PO</span>
+                        </div>
+                      </li>
+                    </ul>
+                    <div v-if="isBarangDropdownOpen && filteredBarangPO.length === 0" class="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg p-3 text-sm text-slate-500 text-center">
+                      Barang tidak ditemukan.
+                    </div>
+                  </div>
                 </div>
                 <div class="w-32">
                   <label class="block text-xs font-semibold text-slate-600 mb-1">Jumlah</label>
