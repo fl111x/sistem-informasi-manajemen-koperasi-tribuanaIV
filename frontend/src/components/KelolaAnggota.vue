@@ -8,6 +8,12 @@ const daftarAnggota = ref([]);
 const isLoading = ref(false);
 const errorMessage = ref('');
 
+// Pagination State
+const currentPage = ref(1);
+const totalPages = ref(1);
+const totalItems = ref(0);
+const limit = 30;
+
 // Modal State
 const isModalOpen = ref(false);
 const modalMode = ref('tambah'); 
@@ -40,8 +46,22 @@ const fetchAnggota = async () => {
   try {
     isLoading.value = true;
     errorMessage.value = '';
-    const response = await api.get('/anggota');
-    daftarAnggota.value = response.data.data || [];
+    
+    const params = new URLSearchParams({
+      page: currentPage.value,
+      limit: limit,
+      search: searchQuery.value,
+      jenis_anggota: activeTab.value
+    });
+
+    const response = await api.get(`/anggota?${params.toString()}`);
+    if (response.data.pagination) {
+      daftarAnggota.value = response.data.data || [];
+      totalPages.value = response.data.pagination.totalPages;
+      totalItems.value = response.data.pagination.totalItems;
+    } else {
+      daftarAnggota.value = response.data.data || [];
+    }
   } catch (error) {
     console.error('Error fetching anggota:', error);
     // Silent fail if endpoint doesn't exist yet, just mock for now
@@ -58,26 +78,23 @@ const fetchAnggota = async () => {
   }
 };
 
+const applyFilter = () => {
+  currentPage.value = 1;
+  fetchAnggota();
+};
+
+const goToPage = (page) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page;
+    fetchAnggota();
+  }
+};
+
 onMounted(() => {
   fetchAnggota();
 });
 
-const dataDitampilkan = computed(() => {
-  let filtered = daftarAnggota.value;
-  
-  if (activeTab.value !== 'Semua') {
-    filtered = filtered.filter(a => a.jenis_anggota === activeTab.value);
-  }
-  
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase();
-    filtered = filtered.filter(a => 
-      (a.nama && a.nama.toLowerCase().includes(query)) || 
-      (a.nrp && a.nrp.includes(query))
-    );
-  }
-  return filtered;
-});
+const dataDitampilkan = computed(() => daftarAnggota.value);
 
 const bukaModalTambah = () => {
   modalMode.value = 'tambah';
@@ -147,13 +164,13 @@ const konfirmasiHapus = async () => {
     <!-- Toolbar & Tabs -->
     <div class="px-8 py-4 border-b border-slate-100 flex flex-col sm:flex-row gap-4 bg-slate-50 flex-shrink-0 justify-between items-start sm:items-center">
       <div class="flex gap-1 bg-slate-200/50 p-1 rounded-lg">
-        <button @click="activeTab = 'Semua'" :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'Semua' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700']">Semua</button>
-        <button @click="activeTab = 'Militer'" :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'Militer' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700']">Militer</button>
-        <button @click="activeTab = 'PNS'" :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'PNS' ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-700']">PNS</button>
+        <button @click="activeTab = 'Semua'; applyFilter()" :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'Semua' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700']">Semua</button>
+        <button @click="activeTab = 'Militer'; applyFilter()" :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'Militer' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700']">Militer</button>
+        <button @click="activeTab = 'PNS'; applyFilter()" :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'PNS' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700']">PNS</button>
       </div>
-      <div class="relative w-full sm:max-w-md">
+      <div class="relative w-full sm:w-72">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-3 top-2.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-        <input type="text" v-model="searchQuery" placeholder="Cari nama atau NRP..." class="w-full border border-slate-300 pl-10 pr-4 py-2 rounded-md text-sm text-slate-800 focus:outline-none focus:border-blue-600 bg-white">
+        <input type="text" v-model="searchQuery" @keyup.enter="applyFilter" placeholder="Cari nama atau NRP... (Enter)" class="w-full border border-slate-300 pl-10 pr-4 py-2 rounded-md text-sm text-slate-800 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 bg-white shadow-sm transition-all">
       </div>
     </div>
 
@@ -172,10 +189,10 @@ const konfirmasiHapus = async () => {
           </thead>
           <tbody>
             <tr v-if="isLoading">
-              <td colspan="4" class="px-5 py-12 text-center text-slate-400">Memuat data...</td>
+              <td colspan="5" class="px-5 py-12 text-center text-slate-400">Memuat data...</td>
             </tr>
             <tr v-else-if="errorMessage">
-              <td colspan="4" class="px-5 py-12 text-center text-red-500">{{ errorMessage }}</td>
+              <td colspan="5" class="px-5 py-12 text-center text-red-500">{{ errorMessage }}</td>
             </tr>
             <tr v-else-if="dataDitampilkan.length === 0">
               <td colspan="5" class="px-5 py-12 text-center text-slate-400">Data anggota tidak ditemukan.</td>
@@ -202,7 +219,20 @@ const konfirmasiHapus = async () => {
           </tbody>
         </table>
       </div>
-      <div class="mt-4 text-xs text-slate-500">Menampilkan {{ dataDitampilkan.length }} dari {{ daftarAnggota.length }} anggota.</div>
+      <div class="mt-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div class="text-xs text-slate-500">
+          Menampilkan <span class="font-bold text-slate-700">{{ dataDitampilkan.length }}</span> dari <span class="font-bold text-slate-700">{{ totalItems }}</span> anggota secara total.
+        </div>
+        <div class="flex items-center gap-2">
+          <button @click="goToPage(currentPage - 1)" :disabled="currentPage === 1" class="px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-md bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
+            Sebelumnya
+          </button>
+          <span class="text-sm font-medium text-slate-600">Hal {{ currentPage }} dari {{ totalPages }}</span>
+          <button @click="goToPage(currentPage + 1)" :disabled="currentPage === totalPages" class="px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-md bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
+            Selanjutnya
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- MODAL FORM -->

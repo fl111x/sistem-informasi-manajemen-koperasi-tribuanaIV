@@ -47,13 +47,7 @@ const selectSupplier = (s) => {
 const searchBarangText = ref('');
 const isBarangDropdownOpen = ref(false);
 
-const filteredBarangPO = computed(() => {
-  if (!searchBarangText.value) return daftarBarangTerorganisir.value;
-  return daftarBarangTerorganisir.value.filter(b => 
-    b.nama_barang.toLowerCase().includes(searchBarangText.value.toLowerCase()) || 
-    (b.barcode && b.barcode.toLowerCase().includes(searchBarangText.value.toLowerCase()))
-  );
-});
+
 
 const selectBarangPO = (b) => {
   barangPilihan.value = b.id_barang;
@@ -95,6 +89,32 @@ const daftarBarangTerorganisir = computed(() => {
   
   return [...langganan, ...lainnya];
 });
+
+const filteredBarangPO = ref([]);
+
+watch(searchBarangText, async (newVal) => {
+  if (!newVal) {
+    filteredBarangPO.value = daftarBarangTerorganisir.value;
+    return;
+  }
+  
+  try {
+    const res = await api.get(`/barang?search=${encodeURIComponent(newVal)}&limit=30`);
+    if (res.data.pagination) {
+      filteredBarangPO.value = res.data.data;
+    } else {
+      filteredBarangPO.value = res.data;
+    }
+  } catch (error) {
+    console.error('Error searching barang:', error);
+  }
+});
+
+watch(daftarBarangTerorganisir, (newVal) => {
+  if (!searchBarangText.value) {
+    filteredBarangPO.value = newVal;
+  }
+}, { immediate: true });
 
 // Notifikasi
 const isNotifModalOpen = ref(false);

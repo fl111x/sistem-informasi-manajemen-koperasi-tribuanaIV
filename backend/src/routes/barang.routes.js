@@ -9,6 +9,7 @@ router.use(verifyToken);
 router.get('/alert-belum-diset', verifyAdmin, barangController.getBarangBelumDiset);
 router.get('/', barangController.getAllBarang); // Semua role yang login (termasuk kasir) bisa melihat daftar barang
 router.get('/:id', barangController.getBarangById);
+router.get('/:id/riwayat', barangController.getRiwayatPembelianBarang);
 
 router.post('/mutasi', authorizeRole(['Admin Sistem', 'Admin Penjualan']), barangController.mutasiBarang);
 router.post('/', verifyAdmin, barangController.createBarang);

@@ -2,8 +2,50 @@ const db = require('../config/db');
 
 const getAllAnggota = async (req, res) => {
   try {
-    const [anggota] = await db.execute('SELECT * FROM Anggota WHERE is_active = 1 ORDER BY nama ASC');
-    res.json({ data: anggota });
+    const { page, limit, search, jenis_anggota } = req.query;
+
+    if (!page && !limit && !search && !jenis_anggota) {
+      const [anggota] = await db.execute('SELECT * FROM Anggota WHERE is_active = 1 ORDER BY nama ASC');
+      return res.json({ data: anggota });
+    }
+
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 30;
+    const offset = (pageNum - 1) * limitNum;
+
+    let query = 'SELECT * FROM Anggota WHERE is_active = 1';
+    let countQuery = 'SELECT COUNT(*) as total FROM Anggota WHERE is_active = 1';
+    const queryParams = [];
+
+    if (search) {
+      query += ' AND (nama LIKE ? OR nrp LIKE ?)';
+      countQuery += ' AND (nama LIKE ? OR nrp LIKE ?)';
+      queryParams.push(`%${search}%`, `%${search}%`);
+    }
+
+    if (jenis_anggota && jenis_anggota !== 'Semua') {
+      query += ' AND jenis_anggota = ?';
+      countQuery += ' AND jenis_anggota = ?';
+      queryParams.push(jenis_anggota);
+    }
+
+    query += ' ORDER BY nama ASC LIMIT ? OFFSET ?';
+    
+    const [countRows] = await db.execute(countQuery, queryParams);
+    const totalItems = countRows[0].total;
+    const totalPages = Math.ceil(totalItems / limitNum);
+
+    const [anggota] = await db.execute(query, [...queryParams, limitNum.toString(), offset.toString()]);
+    
+    res.json({
+      data: anggota,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalItems,
+        limit: limitNum
+      }
+    });
   } catch (error) {
     console.error('Error fetching anggota:', error);
     res.status(500).json({ message: 'Terjadi kesalahan pada server' });

@@ -7,6 +7,12 @@ const daftarSupplier = ref([]);
 const isLoading = ref(false);
 const errorMessage = ref('');
 
+// Pagination State
+const currentPage = ref(1);
+const totalPages = ref(1);
+const totalItems = ref(0);
+const limit = 30;
+
 // Modal State
 const isModalOpen = ref(false);
 const modalMode = ref('tambah'); 
@@ -38,8 +44,21 @@ const fetchSupplier = async () => {
   try {
     isLoading.value = true;
     errorMessage.value = '';
-    const response = await api.get('/supplier');
-    daftarSupplier.value = response.data;
+    
+    const params = new URLSearchParams({
+      page: currentPage.value,
+      limit: limit,
+      search: searchQuery.value
+    });
+
+    const response = await api.get(`/supplier?${params.toString()}`);
+    if (response.data.pagination) {
+      daftarSupplier.value = response.data.data;
+      totalPages.value = response.data.pagination.totalPages;
+      totalItems.value = response.data.pagination.totalItems;
+    } else {
+      daftarSupplier.value = response.data;
+    }
   } catch (error) {
     console.error('Error fetching supplier:', error);
     errorMessage.value = 'Gagal memuat data supplier.';
@@ -48,17 +67,23 @@ const fetchSupplier = async () => {
   }
 };
 
+const applyFilter = () => {
+  currentPage.value = 1;
+  fetchSupplier();
+};
+
+const goToPage = (page) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page;
+    fetchSupplier();
+  }
+};
+
 onMounted(() => {
   fetchSupplier();
 });
 
-const dataDitampilkan = computed(() => {
-  if (!searchQuery.value) return daftarSupplier.value;
-  const query = searchQuery.value.toLowerCase();
-  return daftarSupplier.value.filter(s => 
-    (s.nama_supplier && s.nama_supplier.toLowerCase().includes(query))
-  );
-});
+const dataDitampilkan = computed(() => daftarSupplier.value);
 
 const bukaModalTambah = () => {
   modalMode.value = 'tambah';
@@ -129,7 +154,7 @@ const konfirmasiHapus = async () => {
     <div class="px-8 py-4 border-b border-slate-100 flex gap-4 bg-slate-50 flex-shrink-0">
       <div class="relative w-full max-w-md">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-3 top-2.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-        <input type="text" v-model="searchQuery" placeholder="Cari nama supplier..." class="w-full border border-slate-300 pl-10 pr-4 py-2 rounded-md text-sm text-slate-800 focus:outline-none focus:border-blue-600 bg-white">
+        <input type="text" v-model="searchQuery" @keyup.enter="applyFilter" placeholder="Cari nama supplier... (Enter)" class="w-full border border-slate-300 pl-10 pr-4 py-2 rounded-md text-sm text-slate-800 focus:outline-none focus:border-blue-600 bg-white shadow-sm transition-all">
       </div>
     </div>
 
@@ -173,7 +198,20 @@ const konfirmasiHapus = async () => {
           </tbody>
         </table>
       </div>
-      <div class="mt-4 text-xs text-slate-500">Menampilkan {{ dataDitampilkan.length }} dari {{ daftarSupplier.length }} supplier.</div>
+      <div class="mt-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div class="text-xs text-slate-500">
+          Menampilkan <span class="font-bold text-slate-700">{{ dataDitampilkan.length }}</span> dari <span class="font-bold text-slate-700">{{ totalItems }}</span> supplier secara total.
+        </div>
+        <div class="flex items-center gap-2">
+          <button @click="goToPage(currentPage - 1)" :disabled="currentPage === 1" class="px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-md bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
+            Sebelumnya
+          </button>
+          <span class="text-sm font-medium text-slate-600">Hal {{ currentPage }} dari {{ totalPages }}</span>
+          <button @click="goToPage(currentPage + 1)" :disabled="currentPage === totalPages" class="px-3 py-1.5 text-sm font-medium border border-slate-300 rounded-md bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
+            Selanjutnya
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- MODAL FORM -->

@@ -3,8 +3,57 @@ const db = require('../config/db');
 // Get all barang
 const getAllBarang = async (req, res) => {
   try {
-    const [barang] = await db.execute('SELECT * FROM Barang WHERE is_active = 1');
-    res.status(200).json(barang);
+    const { page, limit, search, kategori, stok_menipis } = req.query;
+    
+    // If no pagination params are provided, return all (backward compatibility for dropdowns) but limit to 30 to prevent lag
+    if (!page && !limit && !search && !kategori && !stok_menipis) {
+      const [barang] = await db.execute('SELECT * FROM Barang WHERE is_active = 1 ORDER BY id_barang DESC LIMIT 30');
+      return res.status(200).json(barang);
+    }
+
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 30;
+    const offset = (pageNum - 1) * limitNum;
+
+    let query = 'SELECT * FROM Barang WHERE is_active = 1';
+    let countQuery = 'SELECT COUNT(*) as total FROM Barang WHERE is_active = 1';
+    const queryParams = [];
+
+    if (search) {
+      query += ' AND (nama_barang LIKE ? OR barcode LIKE ?)';
+      countQuery += ' AND (nama_barang LIKE ? OR barcode LIKE ?)';
+      queryParams.push(`%${search}%`, `%${search}%`);
+    }
+
+    if (kategori && kategori !== 'Semua kategori') {
+      query += ' AND golongan = ?';
+      countQuery += ' AND golongan = ?';
+      queryParams.push(kategori);
+    }
+
+    if (stok_menipis === 'true') {
+      query += ' AND (stok_swalayan <= stok_minimal OR stok_grosir <= stok_minimal) AND stok_gudang > 0';
+      countQuery += ' AND (stok_swalayan <= stok_minimal OR stok_grosir <= stok_minimal) AND stok_gudang > 0';
+    }
+
+    query += ' ORDER BY id_barang DESC LIMIT ? OFFSET ?';
+    
+    const [countRows] = await db.execute(countQuery, queryParams);
+    const totalItems = countRows[0].total;
+    const totalPages = Math.ceil(totalItems / limitNum);
+
+    // execute limits separately because mysql2 array params might complain if numbers are mixed with strings without cast, but usually it works.
+    const [barang] = await db.execute(query, [...queryParams, limitNum.toString(), offset.toString()]);
+    
+    res.status(200).json({
+      data: barang,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalItems,
+        limit: limitNum
+      }
+    });
   } catch (error) {
     console.error('Error fetching barang:', error);
     res.status(500).json({ message: 'Terjadi kesalahan pada server internal' });
@@ -202,6 +251,36 @@ const getBarangBelumDiset = async (req, res) => {
     res.status(500).json({ message: 'Terjadi kesalahan internal' });
   }
 };
+const getRiwayatPembelianBarang = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Check if barang exists
+    const [barangRows] = await db.execute('SELECT nama_barang FROM Barang WHERE id_barang = ?', [id]);
+    if (barangRows.length === 0) {
+      return res.status(404).json({ message: 'Barang tidak ditemukan' });
+    }
+
+    const query = `
+      SELECT 
+        p.waktu_pembelian, 
+        s.nama_supplier, 
+        dp.harga_satuan, 
+        dp.jumlah 
+      FROM detail_pembelian dp
+      JOIN pembelian p ON dp.id_pembelian = p.id_pembelian
+      JOIN supplier s ON p.id_supplier = s.id_supplier
+      WHERE dp.id_barang = ?
+      ORDER BY p.waktu_pembelian DESC
+    `;
+    const [riwayat] = await db.execute(query, [id]);
+    
+    res.status(200).json(riwayat);
+  } catch (error) {
+    console.error('Error fetching riwayat barang:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan internal' });
+  }
+};
 
 module.exports = {
   getAllBarang,
@@ -210,5 +289,6 @@ module.exports = {
   updateBarang,
   deleteBarang,
   mutasiBarang,
-  getBarangBelumDiset
+  getBarangBelumDiset,
+  getRiwayatPembelianBarang
 };
