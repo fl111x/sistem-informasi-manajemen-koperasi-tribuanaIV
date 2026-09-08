@@ -34,6 +34,7 @@ const anggotaRoutes = require('./routes/anggota.routes');
 const supplierRoutes = require('./routes/supplier.routes');
 const hutangRoutes = require('./routes/hutang.routes');
 const laporanRoutes = require('./routes/laporan.routes');
+const voucherRoutes = require('./routes/voucher.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/roles', roleRoutes);
@@ -47,6 +48,7 @@ app.use('/api/anggota', anggotaRoutes);
 app.use('/api/supplier', supplierRoutes);
 app.use('/api/hutang', hutangRoutes);
 app.use('/api/laporan', laporanRoutes);
+app.use('/api/voucher', voucherRoutes);
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);

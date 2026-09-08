@@ -8,6 +8,10 @@ const daftarAnggota = ref([]);
 const isLoading = ref(false);
 const errorMessage = ref('');
 
+const formatRupiah = (angka) => {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka || 0);
+};
+
 // Pagination State
 const currentPage = ref(1);
 const totalPages = ref(1);
@@ -41,6 +45,25 @@ const tutupNotif = () => isNotifModalOpen.value = false;
 // Delete Modal State
 const isDeleteModalOpen = ref(false);
 const itemToDelete = ref(null);
+
+const isDistributing = ref(false);
+const distribusiVoucher = async () => {
+  try {
+    isDistributing.value = true;
+    await api.post('/voucher/distribusi');
+    tampilkanNotif('Berhasil', 'Voucher bulanan berhasil dibagikan ke seluruh anggota militer aktif.');
+    await fetchAnggota();
+  } catch (error) {
+    tampilkanNotif('Gagal', error.response?.data?.message || 'Gagal mendistribusi voucher.');
+  } finally {
+    isDistributing.value = false;
+  }
+};
+const konfirmasiDistribusi = () => {
+  if (confirm('Anda yakin ingin membagikan voucher Rp 100.000 kepada seluruh anggota militer aktif secara otomatis?')) {
+    distribusiVoucher();
+  }
+};
 
 const fetchAnggota = async () => {
   try {
@@ -153,12 +176,19 @@ const konfirmasiHapus = async () => {
     <header class="px-8 py-6 border-b border-slate-200 flex justify-between items-center flex-shrink-0">
       <div>
         <h1 class="text-2xl font-bold text-slate-800">Kelola Anggota</h1>
-        <p class="text-sm text-slate-500 mt-1">Data nominatif anggota koperasi.</p>
+        <p class="text-sm text-slate-500 mt-1">Data nominatif anggota koperasi, voucher dan simpanan.</p>
       </div>
-      <button @click="bukaModalTambah" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-        Tambah Anggota
-      </button>
+      <div class="flex gap-2">
+        <button @click="konfirmasiDistribusi" :disabled="isDistributing" class="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          <span v-if="isDistributing">Memproses...</span>
+          <span v-else>Distribusi Voucher</span>
+        </button>
+        <button @click="bukaModalTambah" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+          Tambah Anggota
+        </button>
+      </div>
     </header>
 
     <!-- Toolbar & Tabs -->
@@ -181,30 +211,33 @@ const konfirmasiHapus = async () => {
           <thead class="bg-slate-100 text-slate-600 uppercase font-bold text-[11px] tracking-wider border-b border-slate-200 sticky top-0 z-10">
             <tr>
               <th class="px-5 py-4 w-1/4">NRP</th>
-              <th class="px-5 py-4 w-1/3">Nama Lengkap</th>
-              <th class="px-5 py-4">Pangkat</th>
-              <th class="px-5 py-4">Jenis</th>
+              <th class="px-5 py-4 w-1/4">Nama Lengkap</th>
+              <th class="px-5 py-4">Pangkat / Jenis</th>
+              <th class="px-5 py-4 text-right">Saldo Voucher</th>
+              <th class="px-5 py-4 text-right">Simpanan</th>
               <th class="px-5 py-4 w-24 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="isLoading">
-              <td colspan="5" class="px-5 py-12 text-center text-slate-400">Memuat data...</td>
+              <td colspan="6" class="px-5 py-12 text-center text-slate-400">Memuat data...</td>
             </tr>
             <tr v-else-if="errorMessage">
-              <td colspan="5" class="px-5 py-12 text-center text-red-500">{{ errorMessage }}</td>
+              <td colspan="6" class="px-5 py-12 text-center text-red-500">{{ errorMessage }}</td>
             </tr>
             <tr v-else-if="dataDitampilkan.length === 0">
-              <td colspan="5" class="px-5 py-12 text-center text-slate-400">Data anggota tidak ditemukan.</td>
+              <td colspan="6" class="px-5 py-12 text-center text-slate-400">Data anggota tidak ditemukan.</td>
             </tr>
             <tr v-else v-for="item in dataDitampilkan" :key="item.id_anggota" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
               <td class="px-5 py-3 font-medium text-slate-800">{{ item.nrp }}</td>
               <td class="px-5 py-3 text-slate-800">{{ item.nama }}</td>
-              <td class="px-5 py-3 text-slate-700">{{ item.pangkat }}</td>
               <td class="px-5 py-3 text-slate-700">
-                <span v-if="item.jenis_anggota === 'PNS'" class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full bg-emerald-100 text-emerald-700">PNS</span>
-                <span v-else class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full bg-blue-100 text-blue-700">Militer</span>
+                <div class="font-medium">{{ item.pangkat }}</div>
+                <span v-if="item.jenis_anggota === 'PNS'" class="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded bg-emerald-100 text-emerald-700 mt-1 inline-block">PNS</span>
+                <span v-else class="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded bg-blue-100 text-blue-700 mt-1 inline-block">Militer</span>
               </td>
+              <td class="px-5 py-3 text-right font-bold text-indigo-600">{{ formatRupiah(item.saldo_voucher) }}</td>
+              <td class="px-5 py-3 text-right font-bold text-slate-600">{{ formatRupiah(item.simpanan) }}</td>
               <td class="px-5 py-3 text-center">
                 <div class="flex justify-center gap-2">
                   <button @click="bukaModalEdit(item)" class="text-slate-400 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 p-1.5 rounded transition-colors" title="Edit">

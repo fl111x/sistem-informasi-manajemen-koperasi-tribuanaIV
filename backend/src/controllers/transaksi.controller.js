@@ -4,8 +4,9 @@ const db = require('../config/db');
 const createTransaksi = async (req, res) => {
   const connection = await db.getConnection();
   try {
-    const { jenis_transaksi, total_bayar, items, nrp, metode_pembayaran } = req.body;
+    const { jenis_transaksi, total_bayar, items, nrp, metode_pembayaran, nominal_voucher } = req.body;
     const paymentMethod = metode_pembayaran || 'Cash';
+    const voucherAmount = parseFloat(nominal_voucher) || 0;
 
     if (!jenis_transaksi || !items || items.length === 0) {
       return res.status(400).json({ message: 'Jenis transaksi dan item wajib diisi' });
@@ -22,8 +23,8 @@ const createTransaksi = async (req, res) => {
     const waktu_transaksi = new Date();
 
     const [transaksiResult] = await connection.execute(
-      'INSERT INTO Transaksi (waktu_transaksi, total_bayar, jenis_transaksi, id_pengguna, nrp, metode_pembayaran) VALUES (?, ?, ?, ?, ?, ?)',
-      [waktu_transaksi, total_bayar || 0, jenis_transaksi, id_pengguna, nrp || null, paymentMethod]
+      'INSERT INTO Transaksi (waktu_transaksi, total_bayar, dibayar_voucher, jenis_transaksi, id_pengguna, nrp, metode_pembayaran) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [waktu_transaksi, total_bayar || 0, 0, jenis_transaksi, id_pengguna, nrp || null, paymentMethod]
     );
 
     const id_transaksi = transaksiResult.insertId;
@@ -75,9 +76,30 @@ const createTransaksi = async (req, res) => {
       );
     }
 
+    if (voucherAmount > 0) {
+      if (!nrp) throw new Error('Pembayaran voucher hanya bisa digunakan oleh anggota.');
+      if (voucherAmount > calculatedTotal) {
+        throw new Error(`Nominal voucher (${voucherAmount}) melebihi total belanja (${calculatedTotal}).`);
+      }
+      
+      const [anggotaRows] = await connection.execute('SELECT * FROM Anggota WHERE nrp = ? FOR UPDATE', [nrp]);
+      if (anggotaRows.length === 0) throw new Error('Anggota tidak ditemukan.');
+      
+      const anggota = anggotaRows[0];
+      if (voucherAmount > parseFloat(anggota.saldo_voucher)) {
+        throw new Error('Saldo voucher anggota tidak mencukupi.');
+      }
+      
+      // Potong saldo anggota
+      await connection.execute(
+        'UPDATE Anggota SET saldo_voucher = saldo_voucher - ? WHERE nrp = ?',
+        [voucherAmount, nrp]
+      );
+    }
+
     await connection.execute(
-      'UPDATE Transaksi SET total_bayar = ?, total_keuntungan = ? WHERE id_transaksi = ?',
-      [calculatedTotal, calculatedKeuntungan, id_transaksi]
+      'UPDATE Transaksi SET total_bayar = ?, total_keuntungan = ?, dibayar_voucher = ? WHERE id_transaksi = ?',
+      [calculatedTotal, calculatedKeuntungan, voucherAmount, id_transaksi]
     );
 
     await connection.execute(
