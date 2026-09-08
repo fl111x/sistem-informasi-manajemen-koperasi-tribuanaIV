@@ -9,6 +9,8 @@ CREATE TABLE `anggota` (
   `nama` varchar(255) NOT NULL,
   `pangkat` varchar(100) NOT NULL,
   `is_active` tinyint(1) DEFAULT '1',
+  `saldo_voucher` decimal(15,2) DEFAULT '0.00',
+  `simpanan` decimal(15,2) DEFAULT '0.00',
   `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`nrp`)
@@ -124,6 +126,7 @@ CREATE TABLE `transaksi` (
   `id_transaksi` int NOT NULL AUTO_INCREMENT,
   `waktu_transaksi` datetime NOT NULL,
   `total_bayar` decimal(15,2) DEFAULT '0.00',
+  `dibayar_voucher` decimal(15,2) DEFAULT '0.00',
   `metode_pembayaran` enum('Cash','Kredit') DEFAULT 'Cash',
   `jenis_transaksi` varchar(50) DEFAULT NULL,
   `id_pengguna` int DEFAULT NULL,

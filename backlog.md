@@ -53,3 +53,29 @@
 
 ## Catatan Tambahan Terkini
 - **Pemulihan Modul Kelola Supplier**: Berdasarkan wawancara terbaru (04/08/2026), pengelolaan hutang/tempo sangat penting sehingga tabel supplier akan dihidupkan kembali dan dihubungkan dengan transaksi pembelian.
+- **Modul Voucher & Simpanan (08/09/2026)**: Schema DB sudah diupdate (`saldo_voucher`, `simpanan` di `anggota`, `dibayar_voucher` di `transaksi`). Controller & routes voucher sudah dibuat. Sisa tugas yang belum selesai tercantum di bawah.
+
+---
+
+## 🎫 Modul Voucher & Simpanan — Tugas Belum Selesai
+
+> Voucher Rp 100.000/bulan dibagikan per anggota. Hanya bisa digunakan untuk belanja. Jika tidak digunakan, otomatis masuk ke simpanan anggota.
+
+### Backend
+- [ ] **(index.js)** Register route voucher baru ke server: `app.use('/api/voucher', voucherRoutes)` di `backend/src/index.js`
+- [ ] **(transaksi.controller.js)** Modifikasi proses checkout untuk mendukung pembayaran dengan voucher:
+  - Terima `nominal_voucher` dari request body
+  - Validasi: anggota harus login (`nrp` harus ada), `nominal_voucher` tidak boleh melebihi `saldo_voucher` anggota, dan tidak boleh melebihi `total_bayar`
+  - Kurangi `saldo_voucher` anggota di tabel `anggota`
+  - Simpan `dibayar_voucher` ke tabel `transaksi`
+- [ ] **(anggota.controller.js)** Pastikan response GET anggota (getAll & getById) mengembalikan field `saldo_voucher` dan `simpanan`
+
+### Frontend: Admin UI
+- [ ] **(KelolaAnggota.vue)** Tambahkan kolom **"Saldo Voucher"** dan **"Simpanan"** pada tabel daftar anggota
+- [ ] **(KelolaAnggota.vue atau Dashboard)** Tambahkan tombol **"Distribusi Voucher Bulanan"** yang memanggil `POST /api/voucher/distribusi`. Tampilkan konfirmasi sebelum eksekusi dan notifikasi sukses/gagal setelah.
+
+### Frontend: Kasir UI
+- [ ] **(KasirSwalayan.vue & KasirGrosir.vue)** Saat anggota dipilih (NRP), tampilkan sisa saldo vouchernya
+- [ ] **(KasirSwalayan.vue & KasirGrosir.vue)** Tambahkan input **"Bayar dengan Voucher"** di modal checkout/pembayaran
+- [ ] **(KasirSwalayan.vue & KasirGrosir.vue)** Tambahkan validasi: nominal voucher ≤ saldo voucher anggota, dan nominal voucher ≤ total belanja
+
