@@ -58,6 +58,8 @@ watch(keranjang, (newVal) => {
 const nrpAnggota = ref('');
 const isAnggotaDropdownOpen = ref(false);
 const metodePembayaran = ref('Cash'); // Cash, Kredit, QRIS, Transfer Bank
+const selectedAnggotaObj = ref(null);
+const nominalVoucher = ref('');
 
 const filteredAnggota = computed(() => {
   if (!nrpAnggota.value || !Array.isArray(masterAnggota.value)) return [];
@@ -69,8 +71,16 @@ const filteredAnggota = computed(() => {
 
 const selectAnggota = (anggota) => {
   nrpAnggota.value = anggota.nrp;
+  selectedAnggotaObj.value = anggota;
   isAnggotaDropdownOpen.value = false;
 };
+
+watch(nrpAnggota, (newVal) => {
+  if (selectedAnggotaObj.value && selectedAnggotaObj.value.nrp !== newVal) {
+    selectedAnggotaObj.value = null;
+    nominalVoucher.value = '';
+  }
+});
 
 // State untuk Diskon
 const diskonRupiah = ref(0);
@@ -151,10 +161,26 @@ const totalBelanjaAkhir = computed(() => {
   return Math.max(0, subtotalBelanja.value - (Number(diskonRupiah.value) || 0));
 });
 
+const totalYangHarusDibayar = computed(() => {
+  return Math.max(0, totalBelanjaAkhir.value - (Number(nominalVoucher.value) || 0));
+});
+
 const kembalian = computed(() => {
   const bayar = Number(uangDiterima.value) || 0;
-  if (bayar === 0 || bayar < totalBelanjaAkhir.value) return 0;
-  return bayar - totalBelanjaAkhir.value;
+  if (bayar === 0 || bayar < totalYangHarusDibayar.value) return 0;
+  return bayar - totalYangHarusDibayar.value;
+});
+
+watch(nominalVoucher, (newVal) => {
+  if (newVal < 0) nominalVoucher.value = 0;
+  if (selectedAnggotaObj.value) {
+    const maxVoucher = Math.min(parseFloat(selectedAnggotaObj.value.saldo_voucher || 0), totalBelanjaAkhir.value);
+    if (newVal > maxVoucher) {
+      nominalVoucher.value = maxVoucher;
+    }
+  } else {
+    nominalVoucher.value = '';
+  }
 });
 
 const hitungDariRupiah = () => {
@@ -183,7 +209,7 @@ const hitungDariPersen = () => {
 
 const setUang = (nominal) => {
   if (nominal === 'Pas') {
-    uangDiterima.value = totalBelanjaAkhir.value;
+    uangDiterima.value = totalYangHarusDibayar.value;
   } else {
     uangDiterima.value = nominal;
   }
@@ -200,7 +226,7 @@ const prosesTransaksi = async () => {
     return tampilkanNotif('Keranjang Kosong', 'Silakan tambahkan barang terlebih dahulu.');
   }
   
-  if (!uangDiterima.value || uangDiterima.value < totalBelanjaAkhir.value) {
+  if (metodePembayaran.value === 'Cash' && (!uangDiterima.value || uangDiterima.value < totalYangHarusDibayar.value)) {
     return tampilkanNotif('Uang Kurang', 'Nominal uang yang diterima kurang dari total bayar.');
   }
 
@@ -224,6 +250,7 @@ const prosesTransaksi = async () => {
       total_bayar: totalBelanjaAkhir.value,
       metode_pembayaran: metodePembayaran.value,
       nrp_anggota: nrpAnggota.value,
+      nominal_voucher: Number(nominalVoucher.value) || 0,
       items: itemsPayload
     };
 
@@ -239,6 +266,8 @@ const prosesTransaksi = async () => {
     diskonPersen.value = 0;
     searchQuery.value = '';
     nrpAnggota.value = '';
+    selectedAnggotaObj.value = null;
+    nominalVoucher.value = '';
     metodePembayaran.value = 'Cash';
     
     // Refresh stok
@@ -420,10 +449,28 @@ const prosesTransaksi = async () => {
               </div>
             </div>
           </div>
-
+          <!-- TOTAL BAYAR (Sebenarnya) -->
           <div class="flex justify-between items-end bg-blue-50 p-3 rounded border border-blue-100 mt-2">
-            <span class="text-blue-800 text-xs font-bold pb-1">TOTAL FAKTUR</span>
+            <span class="text-blue-800 text-xs font-bold pb-1">TOTAL TAGIHAN</span>
             <span class="text-2xl font-black text-blue-600">{{ formatRupiah(totalBelanjaAkhir) }}</span>
+          </div>
+
+          <!-- Bayar dengan Voucher -->
+          <div v-if="selectedAnggotaObj && parseFloat(selectedAnggotaObj.saldo_voucher) > 0" class="mt-2 p-2 bg-indigo-50 border border-indigo-100 rounded">
+            <label class="text-xs font-semibold text-indigo-800 block mb-1">Gunakan Voucher (Maks: {{ formatRupiah(Math.min(parseFloat(selectedAnggotaObj.saldo_voucher), totalBelanjaAkhir)) }})</label>
+            <div class="relative">
+              <span class="absolute left-2.5 top-1.5 text-indigo-400 text-sm font-bold">Rp</span>
+              <input 
+                type="number" v-model="nominalVoucher"
+                class="w-full border border-indigo-200 pl-8 pr-2 py-1.5 rounded text-sm text-indigo-800 font-bold focus:outline-none focus:border-indigo-500 bg-white"
+                placeholder="0"
+              >
+            </div>
+          </div>
+          
+          <div v-if="nominalVoucher > 0" class="flex justify-between items-end bg-slate-100 p-2 rounded border border-slate-200 mt-2">
+            <span class="text-slate-600 text-xs font-bold">SISA DIBAYAR</span>
+            <span class="text-lg font-black text-slate-800">{{ formatRupiah(totalYangHarusDibayar) }}</span>
           </div>
 
           <!-- Metode Pembayaran -->
@@ -464,8 +511,8 @@ const prosesTransaksi = async () => {
           <button 
             @click="prosesTransaksi"
             class="w-full font-bold py-3 text-sm rounded transition-colors flex justify-center items-center gap-2"
-            :class="(metodePembayaran === 'Cash' && uangDiterima >= totalBelanjaAkhir) || (metodePembayaran !== 'Cash' && keranjang.length > 0) ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md' : 'bg-slate-300 text-slate-500 cursor-not-allowed'"
-            :disabled="(metodePembayaran === 'Cash' && uangDiterima < totalBelanjaAkhir) || (metodePembayaran !== 'Cash' && keranjang.length === 0) || isProcessing"
+            :class="(metodePembayaran === 'Cash' && uangDiterima >= totalYangHarusDibayar) || (metodePembayaran !== 'Cash' && keranjang.length > 0) ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md' : 'bg-slate-300 text-slate-500 cursor-not-allowed'"
+            :disabled="(metodePembayaran === 'Cash' && uangDiterima < totalYangHarusDibayar) || (metodePembayaran !== 'Cash' && keranjang.length === 0) || isProcessing"
           >
             <span v-if="isProcessing">Memproses...</span>
             <span v-else>Bayar & Cetak Struk</span>
