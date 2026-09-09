@@ -204,11 +204,106 @@ const getRiwayatTransaksiAnggota = async (req, res) => {
   }
 };
 
+const getRekapVoucherAll = async (req, res) => {
+  try {
+    const [rows] = await db.execute(`
+      SELECT 
+        a.nrp,
+        a.nama,
+        a.pangkat,
+        a.jenis_anggota,
+        CAST(a.saldo_voucher AS DECIMAL(15,2)) as saldo_voucher,
+        COALESCE(SUM(t.dibayar_voucher), 0) as total_voucher_terpakai,
+        COALESCE(SUM(t.total_bayar), 0) as total_pembelanjaan
+      FROM Anggota a
+      LEFT JOIN Transaksi t ON a.nrp = t.nrp
+      WHERE a.is_active = 1
+      GROUP BY a.nrp, a.nama, a.pangkat, a.jenis_anggota, a.saldo_voucher
+      ORDER BY a.nama ASC
+    `);
+
+    const result = rows.map((item, index) => {
+      const sisaSaldo = parseFloat(item.saldo_voucher || 0);
+      const terpakai = parseFloat(item.total_voucher_terpakai || 0);
+      const totalJatah = sisaSaldo + terpakai;
+      const blnTerdaftar = Math.max(1, Math.round(totalJatah / 100000));
+
+      return {
+        no: index + 1,
+        nrp: item.nrp,
+        nama: item.nama,
+        pangkat: item.pangkat,
+        jenis_anggota: item.jenis_anggota,
+        bln_terdaftar: blnTerdaftar,
+        total_jatah: totalJatah,
+        terpakai: terpakai,
+        sisa_saldo: sisaSaldo
+      };
+    });
+
+    res.json({ data: result });
+  } catch (error) {
+    console.error('Error fetching rekap voucher all:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan pada server' });
+  }
+};
+
+const getDetailCetakAnggota = async (req, res) => {
+  try {
+    const { nrp } = req.params;
+
+    const [anggotaRows] = await db.execute('SELECT * FROM Anggota WHERE nrp = ? AND is_active = 1', [nrp]);
+    if (anggotaRows.length === 0) {
+      return res.status(404).json({ message: 'Anggota tidak ditemukan' });
+    }
+
+    const anggota = anggotaRows[0];
+
+    const [transaksiRows] = await db.execute(`
+      SELECT id_transaksi, waktu_transaksi, total_bayar, dibayar_voucher, jenis_transaksi, metode_pembayaran
+      FROM Transaksi 
+      WHERE nrp = ? 
+      ORDER BY waktu_transaksi DESC
+    `, [nrp]);
+
+    const [summaryRows] = await db.execute(`
+      SELECT COALESCE(SUM(dibayar_voucher), 0) as total_terpakai, COALESCE(SUM(total_bayar), 0) as total_pembelanjaan
+      FROM Transaksi
+      WHERE nrp = ?
+    `, [nrp]);
+
+    const sisaSaldo = parseFloat(anggota.saldo_voucher || 0);
+    const totalTerpakai = parseFloat(summaryRows[0].total_terpakai || 0);
+    const totalJatah = sisaSaldo + totalTerpakai;
+    const blnTerdaftar = Math.max(1, Math.round(totalJatah / 100000));
+
+    res.json({
+      anggota: {
+        ...anggota,
+        saldo_voucher: sisaSaldo
+      },
+      summary: {
+        bln_terdaftar: blnTerdaftar,
+        total_jatah: totalJatah,
+        total_terpakai: totalTerpakai,
+        sisa_saldo: sisaSaldo,
+        total_pembelanjaan: parseFloat(summaryRows[0].total_pembelanjaan || 0)
+      },
+      riwayat_transaksi: transaksiRows
+    });
+  } catch (error) {
+    console.error('Error fetching detail cetak anggota:', error);
+    res.status(500).json({ message: 'Terjadi kesalahan pada server' });
+  }
+};
+
 module.exports = {
   getAllAnggota,
   getAnggotaByNrp,
   createAnggota,
   updateAnggota,
   deleteAnggota,
-  getRiwayatTransaksiAnggota
+  getRiwayatTransaksiAnggota,
+  getRekapVoucherAll,
+  getDetailCetakAnggota
 };

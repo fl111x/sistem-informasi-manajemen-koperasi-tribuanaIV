@@ -3,6 +3,12 @@ const router = express.Router();
 const anggotaController = require('../controllers/anggota.controller');
 const { verifyToken, verifyAdmin } = require('../middleware/auth.middleware');
 
+// GET rekap voucher seluruh anggota (Excel export)
+router.get('/rekap-voucher', verifyToken, anggotaController.getRekapVoucherAll);
+
+// GET detail cetak laporan resmi anggota individu
+router.get('/:nrp/detail-cetak', verifyToken, anggotaController.getDetailCetakAnggota);
+
 // GET all anggota
 router.get('/', verifyToken, anggotaController.getAllAnggota);
 

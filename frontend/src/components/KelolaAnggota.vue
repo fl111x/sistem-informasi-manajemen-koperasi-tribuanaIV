@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import api from '../services/api';
+import * as XLSX from 'xlsx';
 
 const searchQuery = ref('');
 const activeTab = ref('Semua');
@@ -46,6 +47,88 @@ const tutupNotif = () => isNotifModalOpen.value = false;
 // Delete Modal State
 const isDeleteModalOpen = ref(false);
 const itemToDelete = ref(null);
+
+// Fitur Ekspor Excel All
+const isExporting = ref(false);
+const exportExcelAll = async () => {
+  try {
+    isExporting.value = true;
+    const response = await api.get('/anggota/rekap-voucher');
+    const rawData = response.data.data || [];
+
+    if (rawData.length === 0) {
+      return tampilkanNotif('Peringatan', 'Tidak ada data anggota untuk diekspor.');
+    }
+
+    // 8 Kolom Wajib Excel:
+    // No | Pangkat | Nama Lengkap | NRP | Bln Terdaftar | Total Jatah | Terpakai | Sisa Saldo (Rp)
+    const excelRows = rawData.map((item, idx) => ({
+      'No': idx + 1,
+      'Pangkat': item.pangkat || '-',
+      'Nama Lengkap': item.nama,
+      'NRP': item.nrp,
+      'Bln Terdaftar': item.bln_terdaftar,
+      'Total Jatah': item.total_jatah,
+      'Terpakai': item.terpakai,
+      'Sisa Saldo (Rp)': item.sisa_saldo
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(excelRows);
+
+    // Atur Lebar Kolom Excel
+    worksheet['!cols'] = [
+      { wch: 6 },  // No
+      { wch: 15 }, // Pangkat
+      { wch: 30 }, // Nama Lengkap
+      { wch: 20 }, // NRP
+      { wch: 15 }, // Bln Terdaftar
+      { wch: 18 }, // Total Jatah
+      { wch: 18 }, // Terpakai
+      { wch: 20 }  // Sisa Saldo (Rp)
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Data Anggota');
+
+    const filename = `Data_Anggota_Koperasi_TribuanaIV_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, filename);
+
+    tampilkanNotif('Berhasil', 'Data seluruh anggota berhasil diekspor ke Excel.');
+  } catch (error) {
+    console.error('Error exporting Excel:', error);
+    tampilkanNotif('Gagal', 'Terjadi kesalahan saat mengekspor data ke Excel.');
+  } finally {
+    isExporting.value = false;
+  }
+};
+
+// Fitur Cetak Detail Anggota Individu (Laporan Resmi / PDF)
+const isPrintModalOpen = ref(false);
+const printData = ref(null);
+const isLoadingPrint = ref(false);
+
+const bukaModalCetakDetail = async (item) => {
+  try {
+    isLoadingPrint.value = true;
+    const response = await api.get(`/anggota/${item.nrp}/detail-cetak`);
+    printData.value = response.data;
+    isPrintModalOpen.value = true;
+  } catch (error) {
+    console.error('Error fetching detail cetak anggota:', error);
+    tampilkanNotif('Gagal', 'Gagal memuat detail laporan anggota.');
+  } finally {
+    isLoadingPrint.value = false;
+  }
+};
+
+const tutupPrintModal = () => {
+  isPrintModalOpen.value = false;
+  printData.value = null;
+};
+
+const cetakLaporanResmi = () => {
+  window.print();
+};
 
 const isDistributing = ref(false);
 const distribusiVoucher = async () => {
@@ -188,6 +271,11 @@ const konfirmasiHapus = async () => {
         <p class="text-sm text-slate-500 mt-1">Data nominatif anggota koperasi dan saldo voucher.</p>
       </div>
       <div class="flex gap-2">
+        <button @click="exportExcelAll" :disabled="isExporting" class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          <span v-if="isExporting">Mengunduh...</span>
+          <span v-else>Ekspor Excel</span>
+        </button>
         <button @click="konfirmasiDistribusi" :disabled="isDistributing" class="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors flex items-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           <span v-if="isDistributing">Memproses...</span>
@@ -224,7 +312,7 @@ const konfirmasiHapus = async () => {
               <th class="px-5 py-4">Pangkat / Jenis</th>
               <th class="px-5 py-4 w-1/4">NRP</th>
               <th class="px-5 py-4 text-right">Saldo Voucher</th>
-              <th class="px-5 py-4 w-24 text-center">Aksi</th>
+              <th class="px-5 py-4 w-32 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody>
@@ -247,7 +335,10 @@ const konfirmasiHapus = async () => {
               <td class="px-5 py-3 text-slate-800 font-medium">{{ item.nrp }}</td>
               <td class="px-5 py-3 text-right font-bold text-indigo-600">{{ formatRupiah(item.saldo_voucher) }}</td>
               <td class="px-5 py-3 text-center">
-                <div class="flex justify-center gap-2">
+                <div class="flex justify-center gap-1.5">
+                  <button @click="bukaModalCetakDetail(item)" class="text-slate-400 hover:text-emerald-600 bg-slate-100 hover:bg-emerald-50 p-1.5 rounded transition-colors" title="Cetak Laporan Detail">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                  </button>
                   <button @click="bukaModalEdit(item)" class="text-slate-400 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 p-1.5 rounded transition-colors" title="Edit">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                   </button>
@@ -331,6 +422,146 @@ const konfirmasiHapus = async () => {
         <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
           <button @click="tutupModalHapus" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-md">Batal</button>
           <button @click="konfirmasiHapus" class="px-4 py-2 text-sm font-bold text-white bg-red-600 hover:bg-red-700 rounded-md">Hapus</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL CETAK DETAIL ANGGOTA INDIVIDU (LAPORAN RESMI) -->
+    <div v-if="isPrintModalOpen && printData" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
+      <div class="bg-white w-full max-w-2xl rounded-xl shadow-2xl flex flex-col overflow-hidden my-auto max-h-[90vh]">
+        <!-- Header Modal (Hidden when printing) -->
+        <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center print:hidden">
+          <h3 class="font-bold text-slate-800 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+            Laporan Resmi Personel: {{ printData.anggota.nama }}
+          </h3>
+          <button @click="tutupPrintModal" class="text-slate-400 hover:text-slate-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        <!-- Printable Document Container -->
+        <div class="p-8 overflow-y-auto bg-white space-y-6 text-slate-800" id="printable-receipt">
+          <!-- Kop Laporan Resmi -->
+          <div class="text-center border-b-2 border-slate-800 pb-4">
+            <h2 class="font-black text-xl text-slate-900 tracking-wider uppercase">KOPERASI TRIBUANA IV</h2>
+            <p class="text-xs text-slate-600 font-semibold mt-1">LAPORAN INDIVIDUAL ALOKASI & PENGGUNAAN VOUCHER PERSONEL</p>
+            <p class="text-[11px] text-slate-500 mt-0.5">Jl. Raya Tri Buana No. 4, Cijantung | Tanggal Cetak: {{ new Date().toLocaleDateString('id-ID', { dateStyle: 'full' }) }}</p>
+          </div>
+
+          <!-- BAGIAN ATAS: IDENTITAS PERSONEL -->
+          <div>
+            <h3 class="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2 border-b border-slate-200 pb-1">I. IDENTITAS PERSONEL</h3>
+            <div class="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200 text-sm">
+              <div class="space-y-1.5">
+                <div class="flex justify-between border-b border-slate-200/60 pb-1">
+                  <span class="text-slate-500 font-medium">Nama Lengkap:</span>
+                  <span class="font-bold text-slate-900">{{ printData.anggota.nama }}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-200/60 pb-1">
+                  <span class="text-slate-500 font-medium">Pangkat / Gol:</span>
+                  <span class="font-semibold text-slate-800">{{ printData.anggota.pangkat }}</span>
+                </div>
+              </div>
+              <div class="space-y-1.5">
+                <div class="flex justify-between border-b border-slate-200/60 pb-1">
+                  <span class="text-slate-500 font-medium">NRP / NIP:</span>
+                  <span class="font-bold text-slate-900">{{ printData.anggota.nrp }}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-200/60 pb-1">
+                  <span class="text-slate-500 font-medium">Jenis Keanggotaan:</span>
+                  <span class="font-semibold text-indigo-700">{{ printData.anggota.jenis_anggota }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- BAGIAN RINGKASAN VOUCHER -->
+          <div>
+            <h3 class="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2 border-b border-slate-200 pb-1">II. RINGKASAN SALDO & ALOKASI VOUCHER</h3>
+            <div class="grid grid-cols-4 gap-3 text-center">
+              <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                <span class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Bln Terdaftar</span>
+                <span class="text-lg font-black text-slate-800">{{ printData.summary.bln_terdaftar }} Bulan</span>
+              </div>
+              <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <span class="text-[11px] font-bold text-blue-700 uppercase block mb-1">Total Jatah</span>
+                <span class="text-base font-black text-blue-900">{{ formatRupiah(printData.summary.total_jatah) }}</span>
+              </div>
+              <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <span class="text-[11px] font-bold text-amber-700 uppercase block mb-1">Total Terpakai</span>
+                <span class="text-base font-black text-amber-900">{{ formatRupiah(printData.summary.total_terpakai) }}</span>
+              </div>
+              <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                <span class="text-[11px] font-bold text-emerald-700 uppercase block mb-1">Sisa Saldo</span>
+                <span class="text-base font-black text-emerald-900">{{ formatRupiah(printData.summary.sisa_saldo) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- BAGIAN BAWAH: RIWAYAT PENGGUNAAN VOUCHER -->
+          <div>
+            <h3 class="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2 border-b border-slate-200 pb-1">III. RIWAYAT PENGGUNAAN VOUCHER</h3>
+            <div v-if="printData.riwayat_transaksi.length === 0" class="text-center py-6 text-sm text-slate-400 border border-dashed border-slate-200 rounded-lg">
+              Belum ada riwayat transaksi penggunaan voucher.
+            </div>
+            <div v-else class="border border-slate-200 rounded-lg overflow-hidden">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-100 uppercase text-slate-600 font-bold border-b border-slate-200">
+                  <tr>
+                    <th class="px-3 py-2.5 w-10 text-center">No</th>
+                    <th class="px-3 py-2.5">Waktu Transaksi</th>
+                    <th class="px-3 py-2.5">No. Trx</th>
+                    <th class="px-3 py-2.5">Unit</th>
+                    <th class="px-3 py-2.5 text-right">Total Belanja</th>
+                    <th class="px-3 py-2.5 text-right font-bold text-indigo-700">Voucher Terpakai</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                  <tr v-for="(t, idx) in printData.riwayat_transaksi" :key="t.id_transaksi" class="hover:bg-slate-50">
+                    <td class="px-3 py-2 text-center text-slate-500">{{ idx + 1 }}</td>
+                    <td class="px-3 py-2 text-slate-700">{{ new Date(t.waktu_transaksi).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) }}</td>
+                    <td class="px-3 py-2 font-mono font-medium text-slate-800">#TRX-{{ t.id_transaksi }}</td>
+                    <td class="px-3 py-2">
+                      <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase" :class="t.jenis_transaksi === 'Swalayan' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'">{{ t.jenis_transaksi }}</span>
+                    </td>
+                    <td class="px-3 py-2 text-right font-medium text-slate-800">{{ formatRupiah(t.total_bayar) }}</td>
+                    <td class="px-3 py-2 text-right font-bold text-indigo-700">{{ formatRupiah(t.dibayar_voucher) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Tanda Tangan Resmi (Untuk Print Out Document) -->
+          <div class="pt-6 grid grid-cols-2 text-center text-xs text-slate-700 print:grid">
+            <div>
+              <p>Mengetahui,</p>
+              <p class="font-bold mt-1">Pengurus Koperasi Tribuana IV</p>
+              <div class="h-16"></div>
+              <p class="font-bold underline">( .................................... )</p>
+            </div>
+            <div>
+              <p>Cijantung, {{ new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) }}</p>
+              <p class="font-bold mt-1">Personel Yang Bersangkutan</p>
+              <div class="h-16"></div>
+              <p class="font-bold underline">{{ printData.anggota.nama }}</p>
+              <p class="text-[11px] text-slate-500">NRP: {{ printData.anggota.nrp }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Actions (Hidden when printing) -->
+        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3 print:hidden">
+          <button @click="tutupPrintModal" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-md">
+            Tutup
+          </button>
+          <button @click="cetakLaporanResmi" class="px-5 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md shadow flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+            Cetak Laporan Resmi
+          </button>
         </div>
       </div>
     </div>
