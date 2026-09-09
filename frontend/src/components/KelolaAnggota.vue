@@ -106,12 +106,20 @@ const daftarJatahBulan = computed(() => {
   const totalTerpakai = printData.value.summary.total_terpakai || 0;
   const bulanTerpakaiCount = Math.floor(totalTerpakai / 100000);
 
+  const createdAt = printData.value.anggota?.created_at ? new Date(printData.value.anggota.created_at) : new Date(2026, 0, 1);
+  const startYear = isNaN(createdAt.getFullYear()) ? 2026 : createdAt.getFullYear();
+  const startMonth = isNaN(createdAt.getMonth()) ? 0 : createdAt.getMonth();
+
   const list = [];
-  for (let i = 1; i <= blnTerdaftar; i++) {
+  for (let i = 0; i < blnTerdaftar; i++) {
+    const d = new Date(startYear, startMonth + i, 1);
+    const namaBulan = d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+    const formattedNamaBulan = namaBulan.charAt(0).toUpperCase() + namaBulan.slice(1);
+
     list.push({
-      bulan: i,
-      label: `Bulan ${i}`,
-      status: i <= bulanTerpakaiCount ? 'Terpakai' : 'Belum Terpakai'
+      bulan: i + 1,
+      label: formattedNamaBulan,
+      status: (i + 1) <= bulanTerpakaiCount ? 'Terpakai' : 'Belum Terpakai'
     });
   }
   return list;
