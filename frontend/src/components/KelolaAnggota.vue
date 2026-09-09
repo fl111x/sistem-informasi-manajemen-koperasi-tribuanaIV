@@ -131,21 +131,27 @@ const cetakLaporanResmi = () => {
 };
 
 const isDistributing = ref(false);
-const distribusiVoucher = async () => {
+const isDistribusiModalOpen = ref(false);
+
+const bukaModalDistribusi = () => {
+  isDistribusiModalOpen.value = true;
+};
+
+const tutupModalDistribusi = () => {
+  isDistribusiModalOpen.value = false;
+};
+
+const eksekusiDistribusiVoucher = async () => {
   try {
     isDistributing.value = true;
-    await api.post('/voucher/distribusi');
-    tampilkanNotif('Berhasil', 'Voucher bulanan berhasil dibagikan ke seluruh anggota militer aktif.');
+    const response = await api.post('/voucher/distribusi');
+    tutupModalDistribusi();
+    tampilkanNotif('Berhasil', response.data?.message || 'Voucher bulanan (Rp 100.000) berhasil dibagikan dan diakumulasikan ke seluruh anggota aktif.');
     await fetchAnggota();
   } catch (error) {
     tampilkanNotif('Gagal', error.response?.data?.message || 'Gagal mendistribusi voucher.');
   } finally {
     isDistributing.value = false;
-  }
-};
-const konfirmasiDistribusi = () => {
-  if (confirm('Anda yakin ingin membagikan voucher Rp 100.000 kepada seluruh anggota militer aktif secara otomatis?')) {
-    distribusiVoucher();
   }
 };
 
@@ -276,7 +282,7 @@ const konfirmasiHapus = async () => {
           <span v-if="isExporting">Mengunduh...</span>
           <span v-else>Ekspor Excel</span>
         </button>
-        <button @click="konfirmasiDistribusi" :disabled="isDistributing" class="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors flex items-center gap-2">
+        <button @click="bukaModalDistribusi" :disabled="isDistributing" class="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors flex items-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
           <span v-if="isDistributing">Memproses...</span>
           <span v-else>Distribusi Voucher</span>
@@ -561,6 +567,83 @@ const konfirmasiHapus = async () => {
           <button @click="cetakLaporanResmi" class="px-5 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-md shadow flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             Cetak Laporan Resmi
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL KONFIRMASI DISTRIBUSI VOUCHER -->
+    <div v-if="isDistribusiModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+      <div class="bg-white w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-100">
+        <!-- Header Modal -->
+        <div class="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-indigo-50 to-blue-50 flex justify-between items-center">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-200">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-bold text-lg text-slate-800 leading-tight">Distribusi Voucher Bulanan</h3>
+              <p class="text-xs text-indigo-600 font-medium mt-0.5">Konfirmasi Alokasi Saldo Anggota</p>
+            </div>
+          </div>
+          <button @click="tutupModalDistribusi" class="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-white/60">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Content Body -->
+        <div class="p-6 space-y-4">
+          <p class="text-sm text-slate-600 leading-relaxed">
+            Apakah Anda yakin ingin membagikan alokasi voucher bulanan ke <strong class="text-slate-800">seluruh anggota aktif</strong>?
+          </p>
+
+          <!-- Summary Box -->
+          <div class="bg-indigo-50/60 border border-indigo-100 rounded-xl p-4 space-y-2.5">
+            <div class="flex justify-between items-center text-sm">
+              <span class="text-slate-500 font-medium">Alokasi Per Anggota:</span>
+              <span class="font-bold text-indigo-700">Rp 100.000</span>
+            </div>
+            <div class="flex justify-between items-center text-sm border-t border-indigo-100/80 pt-2">
+              <span class="text-slate-500 font-medium">Jumlah Anggota Aktif:</span>
+              <span class="font-bold text-slate-800">{{ totalItems }} Anggota</span>
+            </div>
+            <div class="flex justify-between items-center text-sm border-t border-indigo-100/80 pt-2">
+              <span class="text-slate-500 font-medium">Estimasi Total Voucher:</span>
+              <span class="font-black text-emerald-600">{{ formatRupiah(totalItems * 100000) }}</span>
+            </div>
+          </div>
+
+          <!-- Alert/Notice Rule -->
+          <div class="bg-amber-50 border border-amber-200/80 rounded-xl p-3.5 flex gap-3 items-start text-xs text-amber-900">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-amber-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div class="space-y-1 leading-snug">
+              <span class="font-bold block">Sistem Akumulasi Otomatis:</span>
+              <p>Saldo Rp 100.000 akan otomatis ditambahkan ke sisa saldo voucher masing-masing anggota. Saldo bulan lalu yang belum dipakai tidak akan hangus.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Actions -->
+        <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/80 flex justify-end gap-3">
+          <button @click="tutupModalDistribusi" :disabled="isDistributing" class="px-4 py-2.5 text-sm font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200/70 rounded-xl transition-colors disabled:opacity-50">
+            Batal
+          </button>
+          <button @click="eksekusiDistribusiVoucher" :disabled="isDistributing" class="px-5 py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-xl shadow-md shadow-indigo-200 transition-all flex items-center gap-2 disabled:opacity-50">
+            <svg v-if="isDistributing" class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span v-if="isDistributing">Memproses Distribusi...</span>
+            <span v-else>Ya, Bagikan Voucher Sekarang</span>
           </button>
         </div>
       </div>
