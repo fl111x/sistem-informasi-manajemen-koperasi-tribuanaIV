@@ -11,10 +11,13 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response && error.response.status === 401) {
-      console.warn('Unauthorized access. Please login again.');
-      localStorage.removeItem('user');
-      window.location.href = '/login'; 
+    const isLoginEndpoint = error.config && error.config.url && error.config.url.includes('/auth/login');
+    if (error.response && error.response.status === 401 && !isLoginEndpoint) {
+      if (window.location.pathname !== '/login') {
+        console.warn('Unauthorized access. Please login again.');
+        localStorage.removeItem('user');
+        window.location.href = '/login'; 
+      }
     }
     return Promise.reject(error);
   }
