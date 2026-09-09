@@ -60,31 +60,24 @@ const exportExcelAll = async () => {
       return tampilkanNotif('Peringatan', 'Tidak ada data anggota untuk diekspor.');
     }
 
-    // 8 Kolom Wajib Excel:
-    // No | Pangkat | Nama Lengkap | NRP | Bln Terdaftar | Total Jatah | Terpakai | Sisa Saldo (Rp)
+    // 5 Kolom Sesuai Spesifikasi: No | Nama | Pangkat | NRP | Saldo Voucher
     const excelRows = rawData.map((item, idx) => ({
       'No': idx + 1,
+      'Nama': item.nama,
       'Pangkat': item.pangkat || '-',
-      'Nama Lengkap': item.nama,
       'NRP': item.nrp,
-      'Bln Terdaftar': item.bln_terdaftar,
-      'Total Jatah': item.total_jatah,
-      'Terpakai': item.terpakai,
-      'Sisa Saldo (Rp)': item.sisa_saldo
+      'Saldo Voucher': formatRupiah(item.sisa_saldo)
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(excelRows);
 
-    // Atur Lebar Kolom Excel
+    // Atur Lebar Kolom Excel (Bersih, tanpa merge cell)
     worksheet['!cols'] = [
       { wch: 6 },  // No
-      { wch: 15 }, // Pangkat
-      { wch: 30 }, // Nama Lengkap
+      { wch: 30 }, // Nama
+      { wch: 20 }, // Pangkat
       { wch: 20 }, // NRP
-      { wch: 15 }, // Bln Terdaftar
-      { wch: 18 }, // Total Jatah
-      { wch: 18 }, // Terpakai
-      { wch: 20 }  // Sisa Saldo (Rp)
+      { wch: 22 }  // Saldo Voucher
     ];
 
     const workbook = XLSX.utils.book_new();
@@ -106,6 +99,23 @@ const exportExcelAll = async () => {
 const isPrintModalOpen = ref(false);
 const printData = ref(null);
 const isLoadingPrint = ref(false);
+
+const daftarJatahBulan = computed(() => {
+  if (!printData.value || !printData.value.summary) return [];
+  const blnTerdaftar = printData.value.summary.bln_terdaftar || 1;
+  const totalTerpakai = printData.value.summary.total_terpakai || 0;
+  const bulanTerpakaiCount = Math.floor(totalTerpakai / 100000);
+
+  const list = [];
+  for (let i = 1; i <= blnTerdaftar; i++) {
+    list.push({
+      bulan: i,
+      label: `Bulan ${i}`,
+      status: i <= bulanTerpakaiCount ? 'Terpakai' : 'Belum Terpakai'
+    });
+  }
+  return list;
+});
 
 const bukaModalCetakDetail = async (item) => {
   try {
@@ -449,95 +459,44 @@ const konfirmasiHapus = async () => {
         </div>
 
         <!-- Printable Document Container -->
-        <div class="p-8 overflow-y-auto bg-white space-y-6 text-slate-800" id="printable-receipt">
+        <div class="p-8 overflow-y-auto bg-white space-y-6 text-slate-800 font-mono" id="printable-receipt">
           <!-- Kop Laporan Resmi -->
-          <div class="text-center border-b-2 border-slate-800 pb-4">
-            <h2 class="font-black text-xl text-slate-900 tracking-wider uppercase">KOPERASI TRIBUANA IV</h2>
-            <p class="text-xs text-slate-600 font-semibold mt-1">LAPORAN INDIVIDUAL ALOKASI & PENGGUNAAN VOUCHER PERSONEL</p>
-            <p class="text-[11px] text-slate-500 mt-0.5">Jl. Raya Tri Buana No. 4, Cijantung | Tanggal Cetak: {{ new Date().toLocaleDateString('id-ID', { dateStyle: 'full' }) }}</p>
+          <div class="text-center border-b-2 border-slate-900 pb-3">
+            <h2 class="font-black text-lg text-slate-900 tracking-wider">LEMBAR DATA ANGGOTA - PROGRAM ANTIGRAVITY</h2>
+            <p class="text-xs text-slate-600 font-bold mt-1">KOPERASI TRIBUANA IV</p>
+            <p class="text-[11px] text-slate-500 mt-0.5">Tanggal Cetak: {{ new Date().toLocaleDateString('id-ID', { dateStyle: 'full' }) }}</p>
           </div>
 
-          <!-- BAGIAN ATAS: IDENTITAS PERSONEL -->
-          <div>
-            <h3 class="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2 border-b border-slate-200 pb-1">I. IDENTITAS PERSONEL</h3>
-            <div class="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-200 text-sm">
-              <div class="space-y-1.5">
-                <div class="flex justify-between border-b border-slate-200/60 pb-1">
-                  <span class="text-slate-500 font-medium">Nama Lengkap:</span>
-                  <span class="font-bold text-slate-900">{{ printData.anggota.nama }}</span>
-                </div>
-                <div class="flex justify-between border-b border-slate-200/60 pb-1">
-                  <span class="text-slate-500 font-medium">Pangkat / Gol:</span>
-                  <span class="font-semibold text-slate-800">{{ printData.anggota.pangkat }}</span>
-                </div>
-              </div>
-              <div class="space-y-1.5">
-                <div class="flex justify-between border-b border-slate-200/60 pb-1">
-                  <span class="text-slate-500 font-medium">NRP / NIP:</span>
-                  <span class="font-bold text-slate-900">{{ printData.anggota.nrp }}</span>
-                </div>
-                <div class="flex justify-between border-b border-slate-200/60 pb-1">
-                  <span class="text-slate-500 font-medium">Jenis Keanggotaan:</span>
-                  <span class="font-semibold text-indigo-700">{{ printData.anggota.jenis_anggota }}</span>
-                </div>
-              </div>
+          <!-- IDENTITAS PERSONEL -->
+          <div class="space-y-1.5 text-sm border-b border-slate-200 pb-4">
+            <h3 class="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2">IDENTITAS PERSONEL:</h3>
+            <div class="grid grid-cols-[110px_15px_1fr] items-center">
+              <span>Nama</span><span>:</span><span class="font-bold">{{ printData.anggota.nama }}</span>
+            </div>
+            <div class="grid grid-cols-[110px_15px_1fr] items-center">
+              <span>Pangkat</span><span>:</span><span class="font-semibold">{{ printData.anggota.pangkat }}</span>
+            </div>
+            <div class="grid grid-cols-[110px_15px_1fr] items-center">
+              <span>N R P</span><span>:</span><span class="font-bold">{{ printData.anggota.nrp }}</span>
             </div>
           </div>
 
-          <!-- BAGIAN RINGKASAN VOUCHER -->
-          <div>
-            <h3 class="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2 border-b border-slate-200 pb-1">II. RINGKASAN SALDO & ALOKASI VOUCHER</h3>
-            <div class="grid grid-cols-4 gap-3 text-center">
-              <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                <span class="text-[11px] font-bold text-slate-500 uppercase block mb-1">Bln Terdaftar</span>
-                <span class="text-lg font-black text-slate-800">{{ printData.summary.bln_terdaftar }} Bulan</span>
-              </div>
-              <div class="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <span class="text-[11px] font-bold text-blue-700 uppercase block mb-1">Total Jatah</span>
-                <span class="text-base font-black text-blue-900">{{ formatRupiah(printData.summary.total_jatah) }}</span>
-              </div>
-              <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <span class="text-[11px] font-bold text-amber-700 uppercase block mb-1">Total Terpakai</span>
-                <span class="text-base font-black text-amber-900">{{ formatRupiah(printData.summary.total_terpakai) }}</span>
-              </div>
-              <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
-                <span class="text-[11px] font-bold text-emerald-700 uppercase block mb-1">Sisa Saldo</span>
-                <span class="text-base font-black text-emerald-900">{{ formatRupiah(printData.summary.sisa_saldo) }}</span>
-              </div>
-            </div>
+          <!-- SALDO VOUCHER SAAT INI -->
+          <div class="py-3 border-y border-slate-300 bg-slate-50 px-4 flex items-center justify-between">
+            <span class="font-bold text-sm text-slate-800">SALDO VOUCHER SAAT INI :</span>
+            <span class="font-black text-base text-indigo-700">{{ formatRupiah(printData.summary.sisa_saldo) }}</span>
           </div>
 
-          <!-- BAGIAN BAWAH: RIWAYAT PENGGUNAAN VOUCHER -->
-          <div>
-            <h3 class="font-bold text-xs uppercase tracking-wider text-slate-500 mb-2 border-b border-slate-200 pb-1">III. RIWAYAT PENGGUNAAN VOUCHER</h3>
-            <div v-if="printData.riwayat_transaksi.length === 0" class="text-center py-6 text-sm text-slate-400 border border-dashed border-slate-200 rounded-lg">
-              Belum ada riwayat transaksi penggunaan voucher.
-            </div>
-            <div v-else class="border border-slate-200 rounded-lg overflow-hidden">
-              <table class="w-full text-left text-xs">
-                <thead class="bg-slate-100 uppercase text-slate-600 font-bold border-b border-slate-200">
-                  <tr>
-                    <th class="px-3 py-2.5 w-10 text-center">No</th>
-                    <th class="px-3 py-2.5">Waktu Transaksi</th>
-                    <th class="px-3 py-2.5">No. Trx</th>
-                    <th class="px-3 py-2.5">Unit</th>
-                    <th class="px-3 py-2.5 text-right">Total Belanja</th>
-                    <th class="px-3 py-2.5 text-right font-bold text-indigo-700">Voucher Terpakai</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                  <tr v-for="(t, idx) in printData.riwayat_transaksi" :key="t.id_transaksi" class="hover:bg-slate-50">
-                    <td class="px-3 py-2 text-center text-slate-500">{{ idx + 1 }}</td>
-                    <td class="px-3 py-2 text-slate-700">{{ new Date(t.waktu_transaksi).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) }}</td>
-                    <td class="px-3 py-2 font-mono font-medium text-slate-800">#TRX-{{ t.id_transaksi }}</td>
-                    <td class="px-3 py-2">
-                      <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase" :class="t.jenis_transaksi === 'Swalayan' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'">{{ t.jenis_transaksi }}</span>
-                    </td>
-                    <td class="px-3 py-2 text-right font-medium text-slate-800">{{ formatRupiah(t.total_bayar) }}</td>
-                    <td class="px-3 py-2 text-right font-bold text-indigo-700">{{ formatRupiah(t.dibayar_voucher) }}</td>
-                  </tr>
-                </tbody>
-              </table>
+          <!-- INFORMASI JATAH VOUCHER -->
+          <div class="space-y-2">
+            <h3 class="font-bold text-xs uppercase tracking-wider text-slate-500">INFORMASI JATAH VOUCHER:</h3>
+            <div class="border border-slate-200 rounded-md divide-y divide-slate-100 bg-white">
+              <div v-for="j in daftarJatahBulan" :key="j.bulan" class="px-4 py-2 flex justify-between items-center text-xs">
+                <span class="font-semibold">{{ j.label }}</span>
+                <span class="font-bold uppercase tracking-wider px-2 py-0.5 rounded" :class="j.status === 'Terpakai' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'">
+                  Status: {{ j.status }}
+                </span>
+              </div>
             </div>
           </div>
 
