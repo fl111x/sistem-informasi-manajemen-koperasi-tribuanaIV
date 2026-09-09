@@ -4,7 +4,7 @@ const db = require('../config/db');
 const createTransaksi = async (req, res) => {
   const connection = await db.getConnection();
   try {
-    const { jenis_transaksi, total_bayar, items, nrp, metode_pembayaran } = req.body;
+    const { jenis_transaksi, total_bayar, items, nrp, metode_pembayaran, nominal_voucher } = req.body;
     const paymentMethod = metode_pembayaran || 'Cash';
 
     if (!jenis_transaksi || !items || items.length === 0) {
@@ -22,8 +22,8 @@ const createTransaksi = async (req, res) => {
     const waktu_transaksi = new Date();
 
     const [transaksiResult] = await connection.execute(
-      'INSERT INTO Transaksi (waktu_transaksi, total_bayar, jenis_transaksi, id_pengguna, nrp, metode_pembayaran) VALUES (?, ?, ?, ?, ?, ?)',
-      [waktu_transaksi, total_bayar || 0, jenis_transaksi, id_pengguna, nrp || null, paymentMethod]
+      'INSERT INTO Transaksi (waktu_transaksi, total_bayar, jenis_transaksi, id_pengguna, nrp, metode_pembayaran, dibayar_voucher) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [waktu_transaksi, total_bayar || 0, jenis_transaksi, id_pengguna, nrp || null, paymentMethod, nominal_voucher || 0]
     );
 
     const id_transaksi = transaksiResult.insertId;
@@ -80,11 +80,35 @@ const createTransaksi = async (req, res) => {
       [calculatedTotal, calculatedKeuntungan, id_transaksi]
     );
 
-    await connection.execute(
-      `INSERT INTO Jurnal_Akuntansi (keterangan, akun_debit, akun_kredit, nominal, id_transaksi_referensi, jenis_referensi) 
-       VALUES (?, 'Kas', 'Penjualan', ?, ?, 'Penjualan')`,
-      [`Penjualan ${jenis_transaksi} ID ${id_transaksi}`, calculatedTotal, id_transaksi]
-    );
+      // Handle voucher payment if provided
+      if (nominal_voucher && nominal_voucher > 0) {
+        // Fetch member voucher balance
+        const [memberRows] = await connection.execute(
+          'SELECT saldo_voucher FROM Anggota WHERE nrp = ? FOR UPDATE',
+          [nrp]
+        );
+        if (memberRows.length === 0) {
+          throw new Error('Anggota tidak ditemukan untuk penggunaan voucher');
+        }
+        const currentSaldo = memberRows[0].saldo_voucher;
+        if (nominal_voucher > currentSaldo) {
+          throw new Error('Nominal voucher melebihi saldo voucher anggota');
+        }
+        if (nominal_voucher > calculatedTotal) {
+          throw new Error('Nominal voucher melebihi total belanja');
+        }
+        // Deduct voucher balance
+        await connection.execute(
+          'UPDATE Anggota SET saldo_voucher = saldo_voucher - ? WHERE nrp = ?',
+          [nominal_voucher, nrp]
+        );
+      }
+
+      await connection.execute(
+        `INSERT INTO Jurnal_Akuntansi (keterangan, akun_debit, akun_kredit, nominal, id_transaksi_referensi, jenis_referensi) 
+         VALUES (?, 'Kas', 'Penjualan', ?, ?, 'Penjualan')`,
+        [`Penjualan ${jenis_transaksi} ID ${id_transaksi}`, calculatedTotal, id_transaksi]
+      );
 
     await connection.commit();
 

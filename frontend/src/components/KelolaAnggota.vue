@@ -67,14 +67,24 @@ const fetchAnggota = async () => {
     // Silent fail if endpoint doesn't exist yet, just mock for now
     if (error.response?.status === 404) {
       daftarAnggota.value = [
-        { id_anggota: 1, nrp: '123456789', nama: 'Sertu Budi', pangkat: 'Sertu', jenis_anggota: 'Militer' },
-        { id_anggota: 2, nrp: '198701012010121001', nama: 'Agus Santoso', pangkat: 'III/b', jenis_anggota: 'PNS' }
+        { id_anggota: 1, nrp: '123456789', nama: 'Sertu Budi', pangkat: 'Sertu', jenis_anggota: 'Militer', saldo_voucher: 0, simpanan: 0 },
+        { id_anggota: 2, nrp: '198701012010121001', nama: 'Agus Santoso', pangkat: 'III/b', jenis_anggota: 'PNS', saldo_voucher: 0, simpanan: 0 }
       ];
     } else {
       errorMessage.value = 'Gagal memuat data anggota.';
     }
   } finally {
     isLoading.value = false;
+  }
+};
+
+const distribusiVoucher = async () => {
+  try {
+    await api.post('/voucher/distribusi');
+    tampilkanNotif('Berhasil', 'Distribusi voucher telah dijalankan.');
+    await fetchAnggota();
+  } catch (error) {
+    tampilkanNotif('Gagal', 'Gagal menjalankan distribusi voucher.');
   }
 };
 
@@ -155,10 +165,18 @@ const konfirmasiHapus = async () => {
         <h1 class="text-2xl font-bold text-slate-800">Kelola Anggota</h1>
         <p class="text-sm text-slate-500 mt-1">Data nominatif anggota koperasi.</p>
       </div>
-      <button @click="bukaModalTambah" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-        Tambah Anggota
-      </button>
+      <div class="flex">
+        <button @click="bukaModalTambah" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+          Tambah Anggota
+        </button>
+        <button @click="distribusiVoucher" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors flex items-center gap-2 ml-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18"/>
+          </svg>
+          Distribusi Voucher
+        </button>
+      </div>
     </header>
 
     <!-- Toolbar & Tabs -->
@@ -184,18 +202,20 @@ const konfirmasiHapus = async () => {
               <th class="px-5 py-4 w-1/3">Nama Lengkap</th>
               <th class="px-5 py-4">Pangkat</th>
               <th class="px-5 py-4">Jenis</th>
+              <th class="px-5 py-4">Saldo Voucher</th>
+              <th class="px-5 py-4">Simpanan</th>
               <th class="px-5 py-4 w-24 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="isLoading">
-              <td colspan="5" class="px-5 py-12 text-center text-slate-400">Memuat data...</td>
+              <td colspan="7" class="px-5 py-12 text-center text-slate-400">Memuat data...</td>
             </tr>
             <tr v-else-if="errorMessage">
-              <td colspan="5" class="px-5 py-12 text-center text-red-500">{{ errorMessage }}</td>
+              <td colspan="7" class="px-5 py-12 text-center text-red-500">{{ errorMessage }}</td>
             </tr>
             <tr v-else-if="dataDitampilkan.length === 0">
-              <td colspan="5" class="px-5 py-12 text-center text-slate-400">Data anggota tidak ditemukan.</td>
+              <td colspan="7" class="px-5 py-12 text-center text-slate-400">Data anggota tidak ditemukan.</td>
             </tr>
             <tr v-else v-for="item in dataDitampilkan" :key="item.id_anggota" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
               <td class="px-5 py-3 font-medium text-slate-800">{{ item.nrp }}</td>
@@ -205,6 +225,8 @@ const konfirmasiHapus = async () => {
                 <span v-if="item.jenis_anggota === 'PNS'" class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full bg-emerald-100 text-emerald-700">PNS</span>
                 <span v-else class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full bg-blue-100 text-blue-700">Militer</span>
               </td>
+              <td class="px-5 py-3 text-center">{{ item.saldo_voucher }}</td>
+              <td class="px-5 py-3 text-center">{{ item.simpanan }}</td>
               <td class="px-5 py-3 text-center">
                 <div class="flex justify-center gap-2">
                   <button @click="bukaModalEdit(item)" class="text-slate-400 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 p-1.5 rounded transition-colors" title="Edit">

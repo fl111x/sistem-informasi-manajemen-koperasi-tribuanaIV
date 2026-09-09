@@ -28,6 +28,7 @@ const userRoutes = require('./routes/user.routes');
 const barangRoutes = require('./routes/barang.routes');
 const transaksiRoutes = require('./routes/transaksi.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
+const voucherRoutes = require('./routes/voucher.routes');
 
 const pembelianRoutes = require('./routes/pembelian.routes');
 const anggotaRoutes = require('./routes/anggota.routes');
@@ -41,7 +42,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/barang', barangRoutes);
 app.use('/api/transaksi', transaksiRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-
+app.use('/api/voucher', voucherRoutes);
 app.use('/api/pembelian', pembelianRoutes);
 app.use('/api/anggota', anggotaRoutes);
 app.use('/api/supplier', supplierRoutes);
