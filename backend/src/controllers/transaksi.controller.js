@@ -78,6 +78,12 @@ const createTransaksi = async (req, res) => {
 
     if (voucherAmount > 0) {
       if (!nrp) throw new Error('Pembayaran voucher hanya bisa digunakan oleh anggota.');
+      if (calculatedTotal < 100000) {
+        throw new Error('Voucher hanya dapat digunakan dengan minimal pembelanjaan Rp 100.000.');
+      }
+      if (voucherAmount % 100000 !== 0) {
+        throw new Error('Penggunaan voucher harus dalam kelipatan Rp 100.000 (jatah per bulan).');
+      }
       if (voucherAmount > calculatedTotal) {
         throw new Error(`Nominal voucher (${voucherAmount}) melebihi total belanja (${calculatedTotal}).`);
       }

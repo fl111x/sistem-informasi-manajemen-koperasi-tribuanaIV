@@ -8,6 +8,7 @@ CREATE TABLE `anggota` (
   `nrp` varchar(50) NOT NULL,
   `nama` varchar(255) NOT NULL,
   `pangkat` varchar(100) NOT NULL,
+  `jenis_anggota` varchar(50) DEFAULT 'Militer',
   `is_active` tinyint(1) DEFAULT '1',
   `saldo_voucher` decimal(15,2) DEFAULT '0.00',
   `simpanan` decimal(15,2) DEFAULT '0.00',
@@ -19,6 +20,7 @@ CREATE TABLE `anggota` (
 DROP TABLE IF EXISTS barang;
 CREATE TABLE `barang` (
   `id_barang` int NOT NULL AUTO_INCREMENT,
+  `id_supplier` int DEFAULT NULL,
   `barcode` varchar(50) DEFAULT NULL,
   `nama_barang` varchar(150) NOT NULL,
   `golongan` varchar(100) DEFAULT NULL,
@@ -34,8 +36,10 @@ CREATE TABLE `barang` (
   `is_konsinyasi` tinyint(1) DEFAULT '0',
   `is_active` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`id_barang`),
-  UNIQUE KEY `barcode` (`barcode`),
-  KEY `idx_is_active` (`is_active`)
+  UNIQUE KEY `idx_barcode_supplier` (`barcode`,`id_supplier`),
+  KEY `idx_is_active` (`is_active`),
+  KEY `fk_barang_supplier` (`id_supplier`),
+  CONSTRAINT `fk_barang_supplier` FOREIGN KEY (`id_supplier`) REFERENCES `supplier` (`id_supplier`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 DROP TABLE IF EXISTS detail_pembelian;

@@ -5,22 +5,15 @@ exports.distribusiVoucher = async (req, res) => {
   try {
     await connection.beginTransaction();
 
-    // 1. Move current saldo_voucher to simpanan for all active members
+    // Tambah jatah voucher Rp 100.000 ke saldo_voucher seluruh anggota aktif (sistem akumulasi/penumpukan)
     await connection.query(`
       UPDATE anggota 
-      SET simpanan = simpanan + saldo_voucher 
-      WHERE is_active = 1
-    `);
-
-    // 2. Set new saldo_voucher to 100000 for all active members
-    await connection.query(`
-      UPDATE anggota 
-      SET saldo_voucher = 100000.00 
+      SET saldo_voucher = saldo_voucher + 100000.00 
       WHERE is_active = 1
     `);
 
     await connection.commit();
-    res.status(200).json({ message: 'Voucher berhasil didistribusikan. Sisa voucher bulan sebelumnya telah dimasukkan ke simpanan.' });
+    res.status(200).json({ message: 'Voucher bulanan (Rp 100.000) berhasil didistribusikan dan diakumulasikan ke seluruh anggota aktif.' });
   } catch (error) {
     await connection.rollback();
     console.error('Error in distribusiVoucher:', error);

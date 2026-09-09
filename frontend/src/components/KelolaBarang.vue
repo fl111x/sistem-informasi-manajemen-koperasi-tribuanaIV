@@ -24,6 +24,18 @@ const totalPages = ref(1);
 const totalItems = ref(0);
 const limit = 30;
 
+// Daftar Supplier untuk pilihan Edit/Tambah
+const daftarSupplier = ref([]);
+
+const fetchSupplier = async () => {
+  try {
+    const response = await api.get('/supplier');
+    daftarSupplier.value = response.data.data;
+  } catch (error) {
+    console.error('Gagal mengambil data supplier:', error);
+  }
+};
+
 // ==========================================
 // STATE UNTUK MODAL FORM (CRUD)
 // ==========================================
@@ -93,7 +105,10 @@ const bukaModalTambah = () => {
     satuan_swalayan: '',
     satuan_grosir: '',
     stok_gudang: 0,
-    stok_minimal: 10
+    stok_minimal: 10,
+    id_supplier: null,
+    min_beli: 1,
+    isi_koli: 1
   };
   isModalOpen.value = true;
 };
@@ -113,7 +128,10 @@ const bukaModalEdit = (item) => {
     satuan_swalayan: item.satuan_swalayan || '',
     satuan_grosir: item.satuan_grosir || '',
     stok_gudang: item.stok_gudang || 0,
-    stok_minimal: item.stok_minimal !== undefined ? item.stok_minimal : 10
+    stok_minimal: item.stok_minimal || 10,
+    id_supplier: item.id_supplier || null,
+    min_beli: item.min_beli || 1,
+    isi_koli: item.isi_koli || 1
   };
   isModalOpen.value = true;
 };
@@ -266,6 +284,7 @@ const applyFilter = () => {
 
 onMounted(() => {
   fetchBarang();
+  fetchSupplier();
 });
 
 // dataDitampilkan simply returns the fetched data
@@ -442,6 +461,16 @@ const formatRupiah = (angka) => {
             </div>
 
             <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-1">Supplier / Pemasok</label>
+              <select v-model="formBarang.id_supplier" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 bg-white">
+                <option :value="null">Pilih Supplier (Kosong)</option>
+                <option v-for="sup in daftarSupplier" :key="sup.id_supplier" :value="sup.id_supplier">
+                  {{ sup.nama_supplier }}
+                </option>
+              </select>
+            </div>
+
+            <div>
               <label class="block text-sm font-semibold text-slate-700 mb-1">Harga Beli</label>
               <input type="number" v-model="formBarang.harga_beli" placeholder="0" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600">
             </div>
@@ -488,6 +517,16 @@ const formatRupiah = (angka) => {
             <div>
               <label class="block text-sm font-semibold text-slate-700 mb-1">Harga Grosir</label>
               <input type="number" v-model="formBarang.harga_grosir" placeholder="0" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600">
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-1">Minimal Pembelian</label>
+              <input type="number" v-model="formBarang.min_beli" placeholder="Contoh: 1, 5, 10" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600">
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-slate-700 mb-1">Isi per Koli / Dus (Pcs)</label>
+              <input type="number" v-model="formBarang.isi_koli" placeholder="Contoh: 12, 24" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600">
             </div>
 
             <div class="md:col-span-2">

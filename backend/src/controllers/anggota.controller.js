@@ -98,7 +98,7 @@ const createAnggota = async (req, res) => {
 const updateAnggota = async (req, res) => {
   try {
     const { nrp } = req.params;
-    const { nama, pangkat, is_active, jenis_anggota } = req.body;
+    const { nama, pangkat, is_active, jenis_anggota, simpanan, saldo_voucher } = req.body;
     
     const [existingRows] = await db.execute('SELECT * FROM Anggota WHERE nrp = ?', [nrp]);
     if (existingRows.length === 0) {
@@ -123,6 +123,14 @@ const updateAnggota = async (req, res) => {
     if (jenis_anggota !== undefined) {
       updateFields.push('jenis_anggota = ?');
       params.push(jenis_anggota);
+    }
+    if (simpanan !== undefined) {
+      updateFields.push('simpanan = ?');
+      params.push(simpanan);
+    }
+    if (saldo_voucher !== undefined) {
+      updateFields.push('saldo_voucher = ?');
+      params.push(saldo_voucher);
     }
     
     if (updateFields.length === 0) {

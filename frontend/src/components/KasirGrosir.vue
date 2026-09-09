@@ -10,8 +10,8 @@ const masterAnggota = ref([]);
 
 const fetchBarang = async () => {
   try {
-    const response = await api.get('/barang');
-    masterBarangGrosir.value = response.data;
+    const response = await api.get('/barang?limit=10000&tipe=grosir');
+    masterBarangGrosir.value = response.data.data || response.data;
   } catch (error) {
     console.error('Error fetching barang:', error);
   }
@@ -78,7 +78,37 @@ const selectAnggota = (anggota) => {
 watch(nrpAnggota, (newVal) => {
   if (selectedAnggotaObj.value && selectedAnggotaObj.value.nrp !== newVal) {
     selectedAnggotaObj.value = null;
-    nominalVoucher.value = '';
+    nominalVoucher.value = 0;
+  }
+});
+
+watch(nominalVoucher, (newVal) => {
+  if (!selectedAnggotaObj.value) {
+    nominalVoucher.value = 0;
+    return;
+  }
+  const saldo = parseFloat(selectedAnggotaObj.value.saldo_voucher || 0);
+  if (totalBelanjaAkhir.value < 100000 || saldo < 100000) {
+    nominalVoucher.value = 0;
+    return;
+  }
+  const maxVoucher = Math.floor(Math.min(saldo, totalBelanjaAkhir.value) / 100000) * 100000;
+  if (newVal > maxVoucher) {
+    nominalVoucher.value = maxVoucher;
+  } else if (newVal < 0) {
+    nominalVoucher.value = 0;
+  }
+});
+
+watch(totalBelanjaAkhir, (newVal) => {
+  if (newVal < 100000 && nominalVoucher.value > 0) {
+    nominalVoucher.value = 0;
+  } else if (selectedAnggotaObj.value && nominalVoucher.value > 0) {
+    const saldo = parseFloat(selectedAnggotaObj.value.saldo_voucher || 0);
+    const maxVoucher = Math.floor(Math.min(saldo, newVal) / 100000) * 100000;
+    if (nominalVoucher.value > maxVoucher) {
+      nominalVoucher.value = maxVoucher;
+    }
   }
 });
 
@@ -122,10 +152,11 @@ const tambahKeFaktur = (item) => {
     keranjang.value.unshift({
       id_barang: item.id_barang,
       nama: item.nama_barang,
+      min_beli: item.min_beli || 1,
       satuan: item.satuan_grosir,
-      qty: 1,
+      qty: item.min_beli || 1,
       harga: item.harga_grosir || 0,
-      subtotal: item.harga_grosir || 0,
+      subtotal: (item.min_beli || 1) * (item.harga_grosir || 0),
       stok: item.stok_grosir || 0
     });
   }
@@ -138,8 +169,9 @@ const tambahKeFaktur = (item) => {
 // KENDALI KUANTITAS (Hanya Ketik Manual)
 // ==========================================
 const updateQtyManual = (index) => {
-  if (keranjang.value[index].qty < 1 || keranjang.value[index].qty === '') {
-    keranjang.value[index].qty = 1;
+  const min = keranjang.value[index].min_beli || 1;
+  if (keranjang.value[index].qty < min || keranjang.value[index].qty === '') {
+    keranjang.value[index].qty = min;
   }
   keranjang.value[index].subtotal = keranjang.value[index].qty * keranjang.value[index].harga;
   sinkronisasiDiskon();
@@ -219,6 +251,19 @@ const formatRupiah = (angka) => {
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
 };
 
+// Modal Struk State
+const isStrukModalOpen = ref(false);
+const strukData = ref(null);
+
+const cetakStruk = () => {
+  window.print();
+};
+
+const tutupStruk = () => {
+  isStrukModalOpen.value = false;
+  strukData.value = null;
+};
+
 const isProcessing = ref(false);
 
 const prosesTransaksi = async () => {
@@ -226,15 +271,16 @@ const prosesTransaksi = async () => {
     return tampilkanNotif('Keranjang Kosong', 'Silakan tambahkan barang terlebih dahulu.');
   }
   
-  if (metodePembayaran.value === 'Cash' && (!uangDiterima.value || uangDiterima.value < totalYangHarusDibayar.value)) {
-    return tampilkanNotif('Uang Kurang', 'Nominal uang yang diterima kurang dari total bayar.');
+  const sisaTagihan = totalYangHarusDibayar.value;
+
+  if (sisaTagihan > 0 && metodePembayaran.value === 'Cash' && Number(uangDiterima.value || 0) < sisaTagihan) {
+    return tampilkanNotif('Uang Kurang', 'Nominal uang yang diterima kurang dari sisa tagihan.');
   }
 
   isProcessing.value = true;
 
   try {
     const itemsPayload = keranjang.value.map(item => {
-      // Proporsikan diskon global ke masing-masing item berdasarkan subtotalnya
       const proportion = subtotalBelanja.value > 0 ? (item.subtotal / subtotalBelanja.value) : 0;
       const itemDiskon = Math.round(proportion * (Number(diskonRupiah.value) || 0));
       
@@ -249,15 +295,37 @@ const prosesTransaksi = async () => {
       jenis_transaksi: 'Grosir',
       total_bayar: totalBelanjaAkhir.value,
       metode_pembayaran: metodePembayaran.value,
-      nrp_anggota: nrpAnggota.value,
+      nrp: nrpAnggota.value || null,
       nominal_voucher: Number(nominalVoucher.value) || 0,
       items: itemsPayload
     };
 
     const response = await api.post('/transaksi', payload);
     
-    tampilkanNotif('Transaksi Berhasil', 'Transaksi berhasil disimpan. Kembalian: ' + formatRupiah(kembalian.value));
-    
+    // Persiapkan Data Struk sebelum mereset keranjang
+    const totalVoucher = Number(nominalVoucher.value) || 0;
+    const jumlahBulanVoucher = totalVoucher > 0 ? Math.floor(totalVoucher / 100000) : 0;
+
+    strukData.value = {
+      id_transaksi: response.data.id_transaksi || Date.now(),
+      waktu: new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }),
+      jenis: 'GROSIR',
+      kasir: localStorage.getItem('user_nama') || 'Kasir Grosir',
+      anggota: selectedAnggotaObj.value ? { nama: selectedAnggotaObj.value.nama, nrp: selectedAnggotaObj.value.nrp } : null,
+      items: JSON.parse(JSON.stringify(keranjang.value)),
+      subtotal: subtotalBelanja.value,
+      diskonRupiah: Number(diskonRupiah.value) || 0,
+      totalTagihan: totalBelanjaAkhir.value,
+      nominalVoucher: totalVoucher,
+      jumlahBulanVoucher: jumlahBulanVoucher,
+      sisaTagihan: sisaTagihan,
+      metodePembayaran: metodePembayaran.value,
+      uangDiterima: Number(uangDiterima.value) || 0,
+      kembalian: sisaTagihan > 0 && metodePembayaran.value === 'Cash' ? kembalian.value : 0
+    };
+
+    isStrukModalOpen.value = true;
+
     // Reset Kasir
     keranjang.value = [];
     localStorage.removeItem('keranjangGrosir');
@@ -267,7 +335,7 @@ const prosesTransaksi = async () => {
     searchQuery.value = '';
     nrpAnggota.value = '';
     selectedAnggotaObj.value = null;
-    nominalVoucher.value = '';
+    nominalVoucher.value = 0;
     metodePembayaran.value = 'Cash';
     
     // Refresh stok
@@ -322,6 +390,7 @@ const prosesTransaksi = async () => {
                 <div>
                   <span class="font-medium text-slate-800">{{ item.nama_barang }}</span>
                   <span class="text-xs text-slate-500 ml-2">({{ item.satuan_grosir || '-' }})</span>
+                  <span class="text-xs font-bold text-indigo-600 ml-2">Min: {{ item.min_beli || 1 }}</span>
                   <span class="text-xs font-bold text-blue-600 ml-2">Stok: {{ item.stok_grosir || 0 }}</span>
                 </div>
                 <span v-if="Number(item.harga_grosir) > 0" class="text-sm font-bold text-slate-600">{{ formatRupiah(item.harga_grosir) }}</span>
@@ -349,11 +418,12 @@ const prosesTransaksi = async () => {
             </thead>
             <tbody>
               <tr v-if="keranjang.length === 0">
-                <td colspan="6" class="px-4 py-10 text-center text-slate-400">Belum ada barang pada faktur.</td>
+                <td colspan="8" class="px-4 py-10 text-center text-slate-400">Belum ada barang pada faktur.</td>
               </tr>
               <tr v-else class="border-b border-slate-100 hover:bg-slate-50 transition-colors" v-for="(item, index) in keranjang" :key="index">
                 <td class="px-4 py-2 font-medium text-slate-800">{{ item.nama }}</td>
-                <td class="px-2 py-2 text-slate-600">{{ item.satuan }}</td>
+                <td class="px-2 py-2 text-center text-slate-600">{{ item.min_beli || 1 }}</td>
+                <td class="px-2 py-2 text-center text-slate-600">{{ item.satuan }}</td>
                 <td class="px-2 py-2 text-center text-slate-500 font-semibold">{{ item.stok }}</td>
                 
                 <!-- KOLOM QTY (HANYA KETIK MANUAL) -->
@@ -456,15 +526,34 @@ const prosesTransaksi = async () => {
           </div>
 
           <!-- Bayar dengan Voucher -->
-          <div v-if="selectedAnggotaObj && parseFloat(selectedAnggotaObj.saldo_voucher) > 0" class="mt-2 p-2 bg-indigo-50 border border-indigo-100 rounded">
-            <label class="text-xs font-semibold text-indigo-800 block mb-1">Gunakan Voucher (Maks: {{ formatRupiah(Math.min(parseFloat(selectedAnggotaObj.saldo_voucher), totalBelanjaAkhir)) }})</label>
-            <div class="relative">
-              <span class="absolute left-2.5 top-1.5 text-indigo-400 text-sm font-bold">Rp</span>
-              <input 
-                type="number" v-model="nominalVoucher"
-                class="w-full border border-indigo-200 pl-8 pr-2 py-1.5 rounded text-sm text-indigo-800 font-bold focus:outline-none focus:border-indigo-500 bg-white"
-                placeholder="0"
+          <div v-if="selectedAnggotaObj && parseFloat(selectedAnggotaObj.saldo_voucher || 0) > 0" class="mt-2 p-3 bg-indigo-50 border border-indigo-100 rounded-lg">
+            <div class="flex justify-between items-center mb-1">
+              <label class="text-xs font-bold text-indigo-900">Gunakan Voucher</label>
+              <span class="text-[11px] font-medium text-indigo-700">Saldo: {{ formatRupiah(selectedAnggotaObj.saldo_voucher) }}</span>
+            </div>
+            
+            <div v-if="totalBelanjaAkhir < 100000" class="text-xs text-amber-700 bg-amber-50 p-2 rounded border border-amber-200 mt-1 flex items-center gap-1.5 font-medium">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              Min. belanja Rp 100.000 untuk pakai voucher
+            </div>
+            <div v-else-if="parseFloat(selectedAnggotaObj.saldo_voucher || 0) < 100000" class="text-xs text-slate-500 mt-1 italic">
+              Saldo voucher kurang dari Rp 100.000
+            </div>
+            <div v-else class="mt-1 flex flex-col gap-1">
+              <select 
+                v-model.number="nominalVoucher"
+                class="w-full border border-indigo-200 px-3 py-1.5 rounded text-sm text-indigo-900 font-bold focus:outline-none focus:border-indigo-500 bg-white"
               >
+                <option :value="0">0 (Tidak Pakai Voucher)</option>
+                <option 
+                  v-for="v in Math.floor(Math.min(parseFloat(selectedAnggotaObj.saldo_voucher || 0), totalBelanjaAkhir) / 100000)" 
+                  :key="v" 
+                  :value="v * 100000"
+                >
+                  {{ formatRupiah(v * 100000) }} ({{ v }} Bulan)
+                </option>
+              </select>
+              <span class="text-[10px] text-indigo-600 font-medium">* Dipotong kelipatan Rp 100.000 per transaksi</span>
             </div>
           </div>
           
@@ -511,8 +600,8 @@ const prosesTransaksi = async () => {
           <button 
             @click="prosesTransaksi"
             class="w-full font-bold py-3 text-sm rounded transition-colors flex justify-center items-center gap-2"
-            :class="(metodePembayaran === 'Cash' && uangDiterima >= totalYangHarusDibayar) || (metodePembayaran !== 'Cash' && keranjang.length > 0) ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md' : 'bg-slate-300 text-slate-500 cursor-not-allowed'"
-            :disabled="(metodePembayaran === 'Cash' && uangDiterima < totalYangHarusDibayar) || (metodePembayaran !== 'Cash' && keranjang.length === 0) || isProcessing"
+            :class="(totalYangHarusDibayar === 0 || (metodePembayaran === 'Cash' && Number(uangDiterima || 0) >= totalYangHarusDibayar) || (metodePembayaran !== 'Cash' && keranjang.length > 0)) ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md cursor-pointer' : 'bg-slate-300 text-slate-500 cursor-not-allowed'"
+            :disabled="(totalYangHarusDibayar > 0 && metodePembayaran === 'Cash' && Number(uangDiterima || 0) < totalYangHarusDibayar) || isProcessing || keranjang.length === 0"
           >
             <span v-if="isProcessing">Memproses...</span>
             <span v-else>Bayar & Cetak Struk</span>
@@ -522,6 +611,132 @@ const prosesTransaksi = async () => {
 
       </div>
 
+    </div>
+
+    <!-- MODAL STRUK / INVOICE -->
+    <div v-if="isStrukModalOpen && strukData" class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
+      <div class="bg-white w-full max-w-md rounded-xl shadow-2xl flex flex-col overflow-hidden my-auto max-h-[90vh]">
+        <!-- Header Modal -->
+        <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center print:hidden">
+          <h3 class="font-bold text-slate-800 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+            Struk Pembayaran {{ strukData.jenis }}
+          </h3>
+          <button @click="tutupStruk" class="text-slate-400 hover:text-slate-600">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        <!-- Printable Receipt Content -->
+        <div class="p-6 overflow-y-auto font-mono text-xs text-slate-800 space-y-3 bg-white" id="printable-receipt">
+          <!-- Kop Koperasi -->
+          <div class="text-center border-b border-dashed border-slate-300 pb-3">
+            <h2 class="font-bold text-base text-slate-900 tracking-wide">KOPERASI TRIBUANA IV</h2>
+            <p class="text-[11px] text-slate-600 mt-0.5">Jl. Raya Tri Buana No. 4, Cijantung</p>
+            <p class="text-[10px] text-slate-500">Telp: (021) 12345678</p>
+          </div>
+
+          <!-- Info Transaksi -->
+          <div class="border-b border-dashed border-slate-300 pb-2 space-y-1 text-[11px]">
+            <div class="flex justify-between">
+              <span class="text-slate-500">No. Trx:</span>
+              <span class="font-bold text-slate-800">#TRX-{{ strukData.id_transaksi }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-500">Waktu:</span>
+              <span>{{ strukData.waktu }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-500">Kasir:</span>
+              <span>{{ strukData.kasir }}</span>
+            </div>
+            <div v-if="strukData.anggota" class="flex justify-between font-semibold text-indigo-700 pt-1 border-t border-slate-100">
+              <span>Anggota:</span>
+              <span>{{ strukData.anggota.nama }} ({{ strukData.anggota.nrp }})</span>
+            </div>
+          </div>
+
+          <!-- Rincian Item -->
+          <div class="border-b border-dashed border-slate-300 pb-3">
+            <div class="font-bold text-slate-500 text-[10px] uppercase mb-1.5 grid grid-cols-12 gap-1 border-b border-slate-200 pb-1">
+              <span class="col-span-6">BARANG</span>
+              <span class="col-span-2 text-center">QTY</span>
+              <span class="col-span-4 text-right">TOTAL</span>
+            </div>
+            <div v-for="item in strukData.items" :key="item.id_barang" class="grid grid-cols-12 gap-1 py-1 border-b border-slate-50 last:border-b-0 text-[11px]">
+              <span class="col-span-6 font-medium text-slate-800 truncate">{{ item.nama }}</span>
+              <span class="col-span-2 text-center text-slate-600">{{ item.qty }}</span>
+              <span class="col-span-4 text-right font-semibold text-slate-800">{{ formatRupiah(item.subtotal) }}</span>
+            </div>
+          </div>
+
+          <!-- Rincian Total & Diskon -->
+          <div class="space-y-1 text-[11px] border-b border-dashed border-slate-300 pb-2">
+            <div class="flex justify-between">
+              <span class="text-slate-600">Subtotal:</span>
+              <span>{{ formatRupiah(strukData.subtotal) }}</span>
+            </div>
+            <div v-if="strukData.diskonRupiah > 0" class="flex justify-between text-red-600">
+              <span>Diskon:</span>
+              <span>-{{ formatRupiah(strukData.diskonRupiah) }}</span>
+            </div>
+            <div class="flex justify-between font-bold text-sm text-slate-900 pt-1 border-t border-slate-200">
+              <span>TOTAL TAGIHAN:</span>
+              <span>{{ formatRupiah(strukData.totalTagihan) }}</span>
+            </div>
+          </div>
+
+          <!-- RINCIAN PEMBAYARAN TERSTRUKTUR -->
+          <div class="bg-slate-50 p-2.5 rounded border border-slate-200 space-y-1.5 text-[11px]">
+            <div class="font-bold text-[10px] uppercase text-slate-600 border-b border-slate-200 pb-1">
+              RINCIAN PEMBAYARAN
+            </div>
+            
+            <!-- Pembayaran Voucher jika ada -->
+            <div v-if="strukData.nominalVoucher > 0" class="flex justify-between text-indigo-900 font-bold">
+              <span>- Voucher (Jatah {{ strukData.jumlahBulanVoucher }} Bulan):</span>
+              <span>{{ formatRupiah(strukData.nominalVoucher) }}</span>
+            </div>
+
+            <!-- Pembayaran Non-Voucher (Cash / QRIS / Transfer / Kredit) jika ada -->
+            <div v-if="strukData.sisaTagihan > 0" class="flex justify-between text-slate-800 font-semibold">
+              <span>- Pembayaran {{ strukData.metodePembayaran }}:</span>
+              <span>{{ formatRupiah(strukData.sisaTagihan) }}</span>
+            </div>
+
+            <!-- Rincian Cash / Kembalian -->
+            <div v-if="strukData.sisaTagihan > 0 && strukData.metodePembayaran === 'Cash'" class="pt-1.5 border-t border-slate-200 text-slate-600 text-[10px] space-y-1">
+              <div class="flex justify-between">
+                <span>Uang Diterima:</span>
+                <span class="font-medium text-slate-800">{{ formatRupiah(strukData.uangDiterima) }}</span>
+              </div>
+              <div class="flex justify-between font-bold text-slate-900">
+                <span>Kembalian:</span>
+                <span>{{ formatRupiah(strukData.kembalian) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer Struk -->
+          <div class="text-center pt-2 text-[10px] text-slate-500 space-y-0.5">
+            <p class="font-medium text-slate-700">*** Terima Kasih Atas Kunjungan Anda ***</p>
+            <p>Barang yang sudah dibeli tidak dapat ditukar/dikembalikan</p>
+          </div>
+        </div>
+
+        <!-- Modal Actions -->
+        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex gap-3 justify-end print:hidden">
+          <button @click="tutupStruk" class="px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 rounded-md">
+            Tutup
+          </button>
+          <button @click="cetakStruk" class="px-5 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md shadow flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+            Cetak Struk
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- MODAL NOTIFIKASI -->

@@ -3,10 +3,10 @@ const db = require('../config/db');
 // Get all barang
 const getAllBarang = async (req, res) => {
   try {
-    const { page, limit, search, kategori, stok_menipis } = req.query;
+    const { page, limit, search, kategori, stok_menipis, tipe } = req.query;
     
     // If no pagination params are provided, return all (backward compatibility for dropdowns) but limit to 30 to prevent lag
-    if (!page && !limit && !search && !kategori && !stok_menipis) {
+    if (!page && !limit && !search && !kategori && !stok_menipis && !tipe) {
       const [barang] = await db.execute('SELECT * FROM Barang WHERE is_active = 1 ORDER BY id_barang DESC LIMIT 30');
       return res.status(200).json(barang);
     }
@@ -34,6 +34,14 @@ const getAllBarang = async (req, res) => {
     if (stok_menipis === 'true') {
       query += ' AND (stok_swalayan <= stok_minimal OR stok_grosir <= stok_minimal) AND stok_gudang > 0';
       countQuery += ' AND (stok_swalayan <= stok_minimal OR stok_grosir <= stok_minimal) AND stok_gudang > 0';
+    }
+
+    if (tipe === 'swalayan') {
+      query += ' AND id_supplier IS NOT NULL';
+      countQuery += ' AND id_supplier IS NOT NULL';
+    } else if (tipe === 'grosir') {
+      query += ' AND id_supplier IS NULL';
+      countQuery += ' AND id_supplier IS NULL';
     }
 
     query += ' ORDER BY id_barang DESC LIMIT ? OFFSET ?';
@@ -94,7 +102,10 @@ const createBarang = async (req, res) => {
       satuan_grosir,
       stok_minimal,
       stok_gudang,
-      is_konsinyasi
+      is_konsinyasi,
+      id_supplier,
+      min_beli,
+      isi_koli
     } = req.body;
 
     // Basic validation
@@ -102,11 +113,11 @@ const createBarang = async (req, res) => {
       return res.status(400).json({ message: 'Nama barang wajib diisi' });
     }
 
-    // Check if barcode already exists (if provided)
+    // Check for existing barcode
     if (barcode) {
-      const [existingRows] = await db.execute('SELECT * FROM Barang WHERE barcode = ? AND is_active = 1', [barcode]);
+      const [existingRows] = await db.execute('SELECT id_barang FROM Barang WHERE barcode = ? AND id_supplier <=> ? AND is_active = 1', [barcode, id_supplier || null]);
       if (existingRows.length > 0) {
-        return res.status(400).json({ message: 'Barcode sudah terdaftar' });
+        return res.status(400).json({ message: 'Kombinasi Barcode dan Supplier sudah terdaftar' });
       }
     }
 
@@ -115,13 +126,14 @@ const createBarang = async (req, res) => {
         nama_barang, golongan, barcode, 
         harga_beli, harga_swalayan, harga_grosir, 
         stok_swalayan, stok_grosir, stok_minimal, 
-        satuan_swalayan, satuan_grosir, stok_gudang, is_konsinyasi
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        satuan_swalayan, satuan_grosir, stok_gudang, is_konsinyasi, id_supplier, min_beli, isi_koli
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         nama_barang, golongan || null, barcode || null,
         harga_beli || 0, harga_swalayan || 0, harga_grosir || 0,
         stok_swalayan || 0, stok_grosir || 0, stok_minimal || 10,
-        satuan_swalayan || null, satuan_grosir || null, stok_gudang || 0, is_konsinyasi || 0
+        satuan_swalayan || null, satuan_grosir || null, stok_gudang || 0, is_konsinyasi || 0, id_supplier || null,
+        min_beli || 1, isi_koli || 1
       ]
     );
 
@@ -160,16 +172,20 @@ const updateBarang = async (req, res) => {
     const satuan_grosir = req.body.satuan_grosir !== undefined ? req.body.satuan_grosir : curr.satuan_grosir;
     const stok_gudang = req.body.stok_gudang !== undefined ? req.body.stok_gudang : curr.stok_gudang;
     const is_konsinyasi = req.body.is_konsinyasi !== undefined ? req.body.is_konsinyasi : curr.is_konsinyasi;
+    const min_beli = req.body.min_beli !== undefined ? req.body.min_beli : curr.min_beli;
+    const isi_koli = req.body.isi_koli !== undefined ? req.body.isi_koli : curr.isi_koli;
 
     if (!nama_barang) {
       return res.status(400).json({ message: 'Nama barang wajib diisi' });
     }
 
+    const id_supplier = req.body.id_supplier !== undefined ? req.body.id_supplier : curr.id_supplier;
+
     // Check if new barcode clashes with another existing record
-    if (barcode && barcode !== curr.barcode) {
-      const [existingRows] = await db.execute('SELECT id_barang FROM Barang WHERE barcode = ? AND id_barang != ? AND is_active = 1', [barcode, id]);
+    if (barcode) {
+      const [existingRows] = await db.execute('SELECT id_barang FROM Barang WHERE barcode = ? AND id_supplier <=> ? AND id_barang != ? AND is_active = 1', [barcode, id_supplier || null, id]);
       if (existingRows.length > 0) {
-        return res.status(400).json({ message: 'Barcode sudah digunakan oleh barang lain' });
+        return res.status(400).json({ message: 'Kombinasi Barcode dan Supplier ini sudah ada' });
       }
     }
 
@@ -178,13 +194,13 @@ const updateBarang = async (req, res) => {
         nama_barang = ?, golongan = ?, barcode = ?, 
         harga_beli = ?, harga_swalayan = ?, harga_grosir = ?, 
         stok_swalayan = ?, stok_grosir = ?, stok_minimal = ?, 
-        satuan_swalayan = ?, satuan_grosir = ?, stok_gudang = ?, is_konsinyasi = ?
+        satuan_swalayan = ?, satuan_grosir = ?, stok_gudang = ?, is_konsinyasi = ?, id_supplier = ?, min_beli = ?, isi_koli = ?
        WHERE id_barang = ?`,
       [
         nama_barang, golongan || null, barcode || null,
         harga_beli || 0, harga_swalayan || 0, harga_grosir || 0,
         stok_swalayan || 0, stok_grosir || 0, stok_minimal || 10,
-        satuan_swalayan || null, satuan_grosir || null, stok_gudang || 0, is_konsinyasi || 0,
+        satuan_swalayan || null, satuan_grosir || null, stok_gudang || 0, is_konsinyasi || 0, id_supplier || null, min_beli || 1, isi_koli || 1,
         id
       ]
     );

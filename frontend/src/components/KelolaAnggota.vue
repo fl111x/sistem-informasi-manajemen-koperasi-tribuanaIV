@@ -27,7 +27,8 @@ const formAnggota = ref({
   nrp: '',
   nama: '',
   pangkat: '',
-  jenis_anggota: 'Militer'
+  jenis_anggota: 'Militer',
+  saldo_voucher: 0
 });
 
 // Notifikasi
@@ -101,15 +102,6 @@ const fetchAnggota = async () => {
   }
 };
 
-const distribusiVoucher = async () => {
-  try {
-    await api.post('/voucher/distribusi');
-    tampilkanNotif('Berhasil', 'Distribusi voucher telah dijalankan.');
-    await fetchAnggota();
-  } catch (error) {
-    tampilkanNotif('Gagal', 'Gagal menjalankan distribusi voucher.');
-  }
-};
 
 const applyFilter = () => {
   currentPage.value = 1;
@@ -132,7 +124,7 @@ const dataDitampilkan = computed(() => daftarAnggota.value);
 const bukaModalTambah = () => {
   modalMode.value = 'tambah';
   idSedangDiedit.value = null;
-  formAnggota.value = { nrp: '', nama: '', pangkat: '', jenis_anggota: 'Militer' };
+  formAnggota.value = { nrp: '', nama: '', pangkat: '', jenis_anggota: 'Militer', saldo_voucher: 0 };
   isModalOpen.value = true;
 };
 
@@ -146,13 +138,20 @@ const bukaModalEdit = (item) => {
 const tutupModal = () => isModalOpen.value = false;
 
 const simpanAnggota = async () => {
+  if (!formAnggota.value.nrp || !formAnggota.value.nama || !formAnggota.value.pangkat) {
+    tampilkanNotif('Gagal', 'NRP, Nama, dan Pangkat wajib diisi.');
+    return;
+  }
+
   try {
+    const dataToSend = { ...formAnggota.value };
+
     if (modalMode.value === 'tambah') {
-      await api.post('/anggota', formAnggota.value);
-      tampilkanNotif('Berhasil', 'Anggota berhasil ditambahkan.');
+      await api.post('/anggota', dataToSend);
+      tampilkanNotif('Berhasil', 'Anggota baru ditambahkan.');
     } else {
-      await api.put(`/anggota/${idSedangDiedit.value}`, formAnggota.value);
-      tampilkanNotif('Berhasil', 'Anggota berhasil diperbarui.');
+      await api.put(`/anggota/${idSedangDiedit.value}`, dataToSend);
+      tampilkanNotif('Berhasil', 'Data anggota diperbarui.');
     }
     await fetchAnggota();
     tutupModal();
@@ -186,7 +185,7 @@ const konfirmasiHapus = async () => {
     <header class="px-8 py-6 border-b border-slate-200 flex justify-between items-center flex-shrink-0">
       <div>
         <h1 class="text-2xl font-bold text-slate-800">Kelola Anggota</h1>
-        <p class="text-sm text-slate-500 mt-1">Data nominatif anggota koperasi, voucher dan simpanan.</p>
+        <p class="text-sm text-slate-500 mt-1">Data nominatif anggota koperasi dan saldo voucher.</p>
       </div>
       <div class="flex gap-2">
         <button @click="konfirmasiDistribusi" :disabled="isDistributing" class="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors flex items-center gap-2">
@@ -199,21 +198,7 @@ const konfirmasiHapus = async () => {
           Tambah Anggota
         </button>
       </div>
-<<<<<<< HEAD
-      <div class="flex">
-        <button @click="bukaModalTambah" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-          Tambah Anggota
-        </button>
-        <button @click="distribusiVoucher" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors flex items-center gap-2 ml-2">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18"/>
-          </svg>
-          Distribusi Voucher
-        </button>
-      </div>
-=======
->>>>>>> f0e74b71d17bcb532265112fb65c417109ba177e
+
     </header>
 
     <!-- Toolbar & Tabs -->
@@ -235,57 +220,32 @@ const konfirmasiHapus = async () => {
         <table class="w-full text-left text-sm text-slate-600">
           <thead class="bg-slate-100 text-slate-600 uppercase font-bold text-[11px] tracking-wider border-b border-slate-200 sticky top-0 z-10">
             <tr>
-              <th class="px-5 py-4 w-1/4">NRP</th>
-<<<<<<< HEAD
-              <th class="px-5 py-4 w-1/3">Nama Lengkap</th>
-              <th class="px-5 py-4">Pangkat</th>
-              <th class="px-5 py-4">Jenis</th>
-              <th class="px-5 py-4">Saldo Voucher</th>
-              <th class="px-5 py-4">Simpanan</th>
-=======
               <th class="px-5 py-4 w-1/4">Nama Lengkap</th>
               <th class="px-5 py-4">Pangkat / Jenis</th>
+              <th class="px-5 py-4 w-1/4">NRP</th>
               <th class="px-5 py-4 text-right">Saldo Voucher</th>
-              <th class="px-5 py-4 text-right">Simpanan</th>
->>>>>>> f0e74b71d17bcb532265112fb65c417109ba177e
               <th class="px-5 py-4 w-24 text-center">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="isLoading">
-<<<<<<< HEAD
-              <td colspan="7" class="px-5 py-12 text-center text-slate-400">Memuat data...</td>
+              <td colspan="5" class="px-5 py-12 text-center text-slate-400">Memuat data...</td>
             </tr>
             <tr v-else-if="errorMessage">
-              <td colspan="7" class="px-5 py-12 text-center text-red-500">{{ errorMessage }}</td>
+              <td colspan="5" class="px-5 py-12 text-center text-red-500">{{ errorMessage }}</td>
             </tr>
             <tr v-else-if="dataDitampilkan.length === 0">
-              <td colspan="7" class="px-5 py-12 text-center text-slate-400">Data anggota tidak ditemukan.</td>
-=======
-              <td colspan="6" class="px-5 py-12 text-center text-slate-400">Memuat data...</td>
-            </tr>
-            <tr v-else-if="errorMessage">
-              <td colspan="6" class="px-5 py-12 text-center text-red-500">{{ errorMessage }}</td>
-            </tr>
-            <tr v-else-if="dataDitampilkan.length === 0">
-              <td colspan="6" class="px-5 py-12 text-center text-slate-400">Data anggota tidak ditemukan.</td>
->>>>>>> f0e74b71d17bcb532265112fb65c417109ba177e
+              <td colspan="5" class="px-5 py-12 text-center text-slate-400">Data anggota tidak ditemukan.</td>
             </tr>
             <tr v-else v-for="item in dataDitampilkan" :key="item.id_anggota" class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-              <td class="px-5 py-3 font-medium text-slate-800">{{ item.nrp }}</td>
-              <td class="px-5 py-3 text-slate-800">{{ item.nama }}</td>
+              <td class="px-5 py-3 font-medium text-slate-800">{{ item.nama }}</td>
               <td class="px-5 py-3 text-slate-700">
                 <div class="font-medium">{{ item.pangkat }}</div>
                 <span v-if="item.jenis_anggota === 'PNS'" class="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded bg-emerald-100 text-emerald-700 mt-1 inline-block">PNS</span>
                 <span v-else class="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded bg-blue-100 text-blue-700 mt-1 inline-block">Militer</span>
               </td>
-<<<<<<< HEAD
-              <td class="px-5 py-3 text-center">{{ item.saldo_voucher }}</td>
-              <td class="px-5 py-3 text-center">{{ item.simpanan }}</td>
-=======
+              <td class="px-5 py-3 text-slate-800 font-medium">{{ item.nrp }}</td>
               <td class="px-5 py-3 text-right font-bold text-indigo-600">{{ formatRupiah(item.saldo_voucher) }}</td>
-              <td class="px-5 py-3 text-right font-bold text-slate-600">{{ formatRupiah(item.simpanan) }}</td>
->>>>>>> f0e74b71d17bcb532265112fb65c417109ba177e
               <td class="px-5 py-3 text-center">
                 <div class="flex justify-center gap-2">
                   <button @click="bukaModalEdit(item)" class="text-slate-400 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 p-1.5 rounded transition-colors" title="Edit">
@@ -342,6 +302,10 @@ const konfirmasiHapus = async () => {
               <option value="Militer">Militer</option>
               <option value="PNS">PNS</option>
             </select>
+          </div>
+          <div v-if="modalMode === 'edit'">
+            <label class="block text-sm font-semibold text-slate-700 mb-1">Saldo Voucher (Rp)</label>
+            <input type="number" v-model="formAnggota.saldo_voucher" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600">
           </div>
         </div>
         <div class="px-6 py-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
