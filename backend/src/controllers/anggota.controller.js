@@ -292,6 +292,11 @@ const getDetailCetakAnggota = async (req, res) => {
       riwayat_transaksi: transaksiRows
     });
   } catch (error) {
+    console.error('Error fetching detail cetak anggota:', error);
+    res.status(500).json({ message: 'Gagal mengambil detail cetak anggota' });
+  }
+};
+
 const importAnggotaBatch = async (req, res) => {
   let connection;
   try {
