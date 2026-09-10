@@ -319,6 +319,7 @@ const konfirmasiHapus = async () => {
         <button @click="activeTab = 'Semua'; applyFilter()" :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'Semua' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700']">Semua</button>
         <button @click="activeTab = 'Militer'; applyFilter()" :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'Militer' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700']">Militer</button>
         <button @click="activeTab = 'PNS'; applyFilter()" :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'PNS' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700']">PNS</button>
+        <button @click="activeTab = 'PPPK'; applyFilter()" :class="['px-4 py-1.5 rounded-md text-sm font-medium transition-colors', activeTab === 'PPPK' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700']">PPPK</button>
       </div>
       <div class="relative w-full sm:w-72">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 absolute left-3 top-2.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -354,6 +355,7 @@ const konfirmasiHapus = async () => {
               <td class="px-5 py-3 text-slate-700">
                 <div class="font-medium">{{ item.pangkat }}</div>
                 <span v-if="item.jenis_anggota === 'PNS'" class="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded bg-emerald-100 text-emerald-700 mt-1 inline-block">PNS</span>
+                <span v-else-if="item.jenis_anggota === 'PPPK'" class="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded bg-purple-100 text-purple-700 mt-1 inline-block">PPPK</span>
                 <span v-else class="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded bg-blue-100 text-blue-700 mt-1 inline-block">Militer</span>
               </td>
               <td class="px-5 py-3 text-slate-800 font-medium">{{ item.nrp }}</td>
@@ -416,6 +418,7 @@ const konfirmasiHapus = async () => {
             <select v-model="formAnggota.jenis_anggota" class="w-full border border-slate-300 px-3 py-2 rounded-md focus:outline-none focus:border-blue-600 bg-white">
               <option value="Militer">Militer</option>
               <option value="PNS">PNS</option>
+              <option value="PPPK">PPPK</option>
             </select>
           </div>
           <div v-if="modalMode === 'edit'">

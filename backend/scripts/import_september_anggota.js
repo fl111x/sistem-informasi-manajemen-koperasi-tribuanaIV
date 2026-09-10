@@ -31,6 +31,7 @@ function parseASN() {
   for (let sheetName of ['NOM PNS', 'NOM LF', 'NOM PPPK']) {
     const sheet = wb.Sheets[sheetName];
     if (!sheet) continue;
+    const jenis = sheetName === 'NOM PPPK' ? 'PPPK' : 'PNS';
     const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
     for (let r of rows) {
       if (!r || r.length < 5) continue;
@@ -38,7 +39,7 @@ function parseASN() {
       const pangkat = r[3];
       const nip = String(r[4] || '').trim();
       if (typeof nama === 'string' && nama.trim().length > 2 && nip && /^\d+$/.test(nip)) {
-        list.push({ nrp: nip, nama: nama.trim(), pangkat: String(pangkat || '-').trim(), jenis_anggota: 'PNS' });
+        list.push({ nrp: nip, nama: nama.trim(), pangkat: String(pangkat || '-').trim(), jenis_anggota: jenis });
       }
     }
   }
@@ -60,7 +61,12 @@ async function importData() {
       }
     }
     const allMembers = Array.from(mapByNrp.values());
-    console.log(`📋 Total data nominatif unik September: ${allMembers.length} anggota (${militerList.length} Militer, ${asnList.length} PNS).`);
+
+    const countMiliter = allMembers.filter(m => m.jenis_anggota === 'Militer').length;
+    const countPNS = allMembers.filter(m => m.jenis_anggota === 'PNS').length;
+    const countPPPK = allMembers.filter(m => m.jenis_anggota === 'PPPK').length;
+
+    console.log(`📋 Total data nominatif unik September: ${allMembers.length} anggota (${countMiliter} Militer, ${countPNS} PNS, ${countPPPK} PPPK).`);
 
     connection = await mysql.createConnection({
       host: '127.0.0.1',
@@ -79,7 +85,7 @@ async function importData() {
 
     for (let m of allMembers) {
       if (existingMap.has(m.nrp)) {
-        // Update existing member details
+        // Update existing member details including jenis_anggota
         await connection.execute(
           'UPDATE Anggota SET nama = ?, pangkat = ?, jenis_anggota = ?, is_active = 1 WHERE nrp = ?',
           [m.nama, m.pangkat, m.jenis_anggota, m.nrp]
@@ -98,10 +104,11 @@ async function importData() {
     const [totalActiveRows] = await connection.execute('SELECT COUNT(*) as total FROM Anggota WHERE is_active = 1');
     const totalActive = totalActiveRows[0].total;
 
-    console.log(`✅ BERHASIL MENGIMPOR DATA NOMINATIF ANGGOTA SEPTEMBER 2026:`);
-    console.log(`   - Anggota Baru Ditambahkan : ${insertedCount}`);
-    console.log(`   - Anggota Lama Diperbarui   : ${updatedCount}`);
-    console.log(`   - Total Anggota Aktif Sekarang : ${totalActive}`);
+    console.log(`✅ BERHASIL MENGIMPOR & MEMISAHKAN DATA KATEGORI ANGGOTA SEPTEMBER 2026:`);
+    console.log(`   - Militer : ${countMiliter} Anggota`);
+    console.log(`   - PNS     : ${countPNS} Anggota`);
+    console.log(`   - PPPK    : ${countPPPK} Anggota`);
+    console.log(`   - Total Aktif : ${totalActive} Anggota`);
 
   } catch (error) {
     console.error('❌ Terjadi kesalahan saat mengimpor:', error);
