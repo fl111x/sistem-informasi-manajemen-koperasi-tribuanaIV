@@ -19,6 +19,12 @@ const pengaturan = ref({
 });
 
 const riwayat = ref([]);
+const isDatePickerOpen = ref(false);
+
+const pilihTanggal = (d) => {
+  pengaturan.value.tanggal_distribusi = d;
+  isDatePickerOpen.value = false;
+};
 
 // Modals & Notifications
 const isNotifModalOpen = ref(false);
@@ -180,35 +186,69 @@ onMounted(() => {
 
         <form @submit.prevent="simpanPengaturan" class="flex flex-col gap-6">
           
-          <!-- Visual Date Selector Grid -->
-          <div>
-            <div class="flex justify-between items-center mb-3">
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                Pilih Tanggal Pembagian Rutin Bulanan (Visual Date Selector)
-              </label>
-              <span class="text-xs font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100">
-                Terpilih: Tanggal {{ pengaturan.tanggal_distribusi }} Setiap Bulan
-              </span>
+          <!-- DatePicker Popover Section -->
+          <div class="relative">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Tanggal Pembagian Rutin Bulanan</label>
+            
+            <!-- Clickable Input Field Trigger -->
+            <button 
+              type="button" 
+              @click="isDatePickerOpen = !isDatePickerOpen"
+              class="w-full flex items-center justify-between bg-white border border-slate-300 hover:border-indigo-500 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-600 shadow-sm transition-all cursor-pointer group"
+            >
+              <div class="flex items-center gap-3">
+                <div class="p-2 bg-indigo-50 group-hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                </div>
+                <div class="text-left">
+                  <p class="text-xs text-slate-400 font-normal">Tanggal Terpilih</p>
+                  <p class="text-sm font-bold text-slate-800">Tanggal {{ pengaturan.tanggal_distribusi }} Setiap Bulan</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-100">Ubah Tanggal</span>
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 transition-transform duration-200" :class="isDatePickerOpen ? 'rotate-180 text-indigo-600' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+              </div>
+            </button>
+
+            <!-- Floating Visual Calendar Popover Modal -->
+            <div v-if="isDatePickerOpen" class="absolute left-0 top-full mt-2 z-50 bg-white border border-slate-200 rounded-2xl shadow-2xl p-5 w-full sm:w-96 animate-in fade-in zoom-in-95 duration-150">
+              <div class="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  Pilih Tanggal Distribusi Bulanan
+                </h4>
+                <button type="button" @click="isDatePickerOpen = false" class="text-slate-400 hover:text-slate-700 text-xs font-bold px-2 py-1 rounded-md hover:bg-slate-100 transition-colors">✕ Tutup</button>
+              </div>
+
+              <p class="text-xs text-slate-500 mb-4 leading-relaxed">Klik salah satu tanggal kalender (1 - 28) di bawah ini untuk memilih jadwal pembagian rutin:</p>
+
+              <!-- Grid Kalender Visual 7 Kolom -->
+              <div class="grid grid-cols-7 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 mb-3">
+                <button 
+                  type="button"
+                  v-for="d in 28" 
+                  :key="d"
+                  @click="pilihTanggal(d)"
+                  :class="[
+                    'h-10 rounded-xl text-xs font-extrabold flex flex-col items-center justify-center transition-all border cursor-pointer',
+                    pengaturan.tanggal_distribusi === d
+                      ? 'bg-indigo-600 text-white shadow-md border-indigo-700 ring-2 ring-indigo-300 scale-105 z-10'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300'
+                  ]"
+                >
+                  <span>{{ d }}</span>
+                </button>
+              </div>
+
+              <div class="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
+                <span class="text-slate-500">Terpilih: <strong class="text-indigo-700 font-bold">Tanggal {{ pengaturan.tanggal_distribusi }}</strong></span>
+                <button type="button" @click="isDatePickerOpen = false" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg shadow-sm transition-colors">Pilih & Selesai</button>
+              </div>
             </div>
 
-            <!-- Grid Hari 1 - 28 -->
-            <div class="grid grid-cols-7 sm:grid-cols-14 gap-2 bg-slate-50 p-4 rounded-xl border border-slate-200">
-              <button 
-                type="button"
-                v-for="d in 28" 
-                :key="d"
-                @click="pengaturan.tanggal_distribusi = d"
-                :class="[
-                  'py-2.5 px-2 text-xs rounded-lg font-bold transition-all flex flex-col items-center justify-center border',
-                  pengaturan.tanggal_distribusi === d
-                    ? 'bg-indigo-600 text-white shadow-md border-indigo-700 ring-2 ring-indigo-300 scale-105 z-10'
-                    : 'bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200'
-                ]"
-              >
-                <span class="text-[10px] opacity-75 font-normal">Tgl</span>
-                <span class="text-sm font-extrabold">{{ d }}</span>
-              </button>
-            </div>
+            <!-- Overlay transparan untuk menutup popover saat diklik di luar -->
+            <div v-if="isDatePickerOpen" @click="isDatePickerOpen = false" class="fixed inset-0 z-40 bg-transparent"></div>
           </div>
 
           <!-- Banner Informatif Tanggal Terpilih -->
