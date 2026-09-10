@@ -82,6 +82,31 @@ watch(nrpAnggota, (newVal) => {
   }
 });
 
+// State untuk Diskon
+const diskonRupiah = ref(0);
+const diskonPersen = ref(0);
+
+// ==========================================
+// LOGIKA PERHITUNGAN MATEMATIKA
+// ==========================================
+const subtotalBelanja = computed(() => {
+  return keranjang.value.reduce((total, item) => total + item.subtotal, 0);
+});
+
+const totalBelanjaAkhir = computed(() => {
+  return Math.max(0, subtotalBelanja.value - (Number(diskonRupiah.value) || 0));
+});
+
+const totalYangHarusDibayar = computed(() => {
+  return Math.max(0, totalBelanjaAkhir.value - (Number(nominalVoucher.value) || 0));
+});
+
+const kembalian = computed(() => {
+  const bayar = Number(uangDiterima.value) || 0;
+  if (bayar === 0 || bayar < totalYangHarusDibayar.value) return 0;
+  return bayar - totalYangHarusDibayar.value;
+});
+
 watch(nominalVoucher, (newVal) => {
   if (!selectedAnggotaObj.value) {
     nominalVoucher.value = 0;
@@ -111,10 +136,6 @@ watch(totalBelanjaAkhir, (newVal) => {
     }
   }
 });
-
-// State untuk Diskon
-const diskonRupiah = ref(0);
-const diskonPersen = ref(0);
 
 // ==========================================
 // LOGIKA AUTOCOMPLETE & MANAJEMEN FAKTUR
@@ -181,39 +202,6 @@ const hapusItem = (index) => {
   keranjang.value.splice(index, 1);
   sinkronisasiDiskon();
 };
-
-// ==========================================
-// LOGIKA PERHITUNGAN MATEMATIKA
-// ==========================================
-const subtotalBelanja = computed(() => {
-  return keranjang.value.reduce((total, item) => total + item.subtotal, 0);
-});
-
-const totalBelanjaAkhir = computed(() => {
-  return Math.max(0, subtotalBelanja.value - (Number(diskonRupiah.value) || 0));
-});
-
-const totalYangHarusDibayar = computed(() => {
-  return Math.max(0, totalBelanjaAkhir.value - (Number(nominalVoucher.value) || 0));
-});
-
-const kembalian = computed(() => {
-  const bayar = Number(uangDiterima.value) || 0;
-  if (bayar === 0 || bayar < totalYangHarusDibayar.value) return 0;
-  return bayar - totalYangHarusDibayar.value;
-});
-
-watch(nominalVoucher, (newVal) => {
-  if (newVal < 0) nominalVoucher.value = 0;
-  if (selectedAnggotaObj.value) {
-    const maxVoucher = Math.min(parseFloat(selectedAnggotaObj.value.saldo_voucher || 0), totalBelanjaAkhir.value);
-    if (newVal > maxVoucher) {
-      nominalVoucher.value = maxVoucher;
-    }
-  } else {
-    nominalVoucher.value = '';
-  }
-});
 
 const hitungDariRupiah = () => {
   if (subtotalBelanja.value > 0) {
