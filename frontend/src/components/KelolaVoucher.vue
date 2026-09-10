@@ -169,141 +169,64 @@ onMounted(() => {
 
       </div>
 
-      <!-- Section Pengaturan Otomatis -->
-      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-        <div class="border-b border-slate-100 pb-4 mb-6 flex justify-between items-center">
+      <!-- Section Status Otomatis & Informasi System -->
+      <div class="bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 text-white rounded-2xl shadow-lg p-6 sm:p-8 relative overflow-hidden">
+        <!-- Background Decorative Circles -->
+        <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
+        <div class="absolute right-40 -top-10 w-48 h-48 bg-blue-500/10 rounded-full blur-xl pointer-events-none"></div>
+
+        <div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
-            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              Jadwal Distribusi Otomatis Bulanan
-            </h2>
-            <p class="text-xs text-slate-500 mt-0.5">Sistem akan secara otomatis menambahkan jatah voucher ke seluruh anggota aktif pada tanggal yang ditentukan setiap bulan.</p>
+            <div class="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 rounded-full text-xs font-bold uppercase tracking-wider mb-3">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              Sistem Distribusi Otomatis Aktif
+            </div>
+            <h2 class="text-xl sm:text-2xl font-bold tracking-tight">Distribusi Voucher Rutin Rp 100.000 / Bulan</h2>
+            <p class="text-xs sm:text-sm text-indigo-200 mt-1.5 max-w-2xl leading-relaxed">
+              Voucher sebesar <strong>Rp 100.000</strong> dibagikan secara <strong>otomatis oleh sistem setiap tanggal 1 awal bulan</strong> kepada seluruh <strong>{{ statistik.total_anggota }} anggota aktif</strong> tanpa perlu diinput manual.
+            </p>
           </div>
-          <span :class="['px-3 py-1 text-xs font-bold uppercase rounded-full', pengaturan.is_otomatis === 'aktif' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500']">
-            {{ pengaturan.is_otomatis === 'aktif' ? 'Otomatis Aktif' : 'Otomatis Nonaktif' }}
-          </span>
+
+          <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto flex-shrink-0">
+            <button @click="bukaModalKonfirmasi" :disabled="isDistributing || statistik.total_anggota === 0" class="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-semibold py-3 px-5 rounded-xl shadow-md transition-colors flex items-center justify-center gap-2.5 text-sm cursor-pointer">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+              <span v-if="isDistributing">Memproses...</span>
+              <span v-else>Bagikan Voucher Sekarang (Manual)</span>
+            </button>
+          </div>
         </div>
 
-        <form @submit.prevent="simpanPengaturan" class="flex flex-col gap-6">
-          
-          <!-- DatePicker Popover Section -->
-          <div class="relative">
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Tanggal Pembagian Rutin Bulanan</label>
-            
-            <!-- Clickable Input Field Trigger -->
-            <button 
-              type="button" 
-              @click="isDatePickerOpen = !isDatePickerOpen"
-              class="w-full flex items-center justify-between bg-white border border-slate-300 hover:border-indigo-500 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-600 shadow-sm transition-all cursor-pointer group"
-            >
-              <div class="flex items-center gap-3">
-                <div class="p-2 bg-indigo-50 group-hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                </div>
-                <div class="text-left">
-                  <p class="text-xs text-slate-400 font-normal">Tanggal Terpilih</p>
-                  <p class="text-sm font-bold text-slate-800">Tanggal {{ pengaturan.tanggal_distribusi }} Setiap Bulan</p>
-                </div>
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-md border border-indigo-100">Ubah Tanggal</span>
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-400 transition-transform duration-200" :class="isDatePickerOpen ? 'rotate-180 text-indigo-600' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-              </div>
-            </button>
-
-            <!-- Floating Visual Calendar Popover Modal -->
-            <div v-if="isDatePickerOpen" class="absolute left-0 top-full mt-2 z-50 bg-white border border-slate-200 rounded-2xl shadow-2xl p-5 w-full sm:w-96 animate-in fade-in zoom-in-95 duration-150">
-              <div class="flex justify-between items-center pb-3 border-b border-slate-100 mb-3">
-                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                  Pilih Tanggal Distribusi Bulanan
-                </h4>
-                <button type="button" @click="isDatePickerOpen = false" class="text-slate-400 hover:text-slate-700 text-xs font-bold px-2 py-1 rounded-md hover:bg-slate-100 transition-colors">✕ Tutup</button>
-              </div>
-
-              <p class="text-xs text-slate-500 mb-4 leading-relaxed">Klik salah satu tanggal kalender (1 - 28) di bawah ini untuk memilih jadwal pembagian rutin:</p>
-
-              <!-- Grid Kalender Visual 7 Kolom -->
-              <div class="grid grid-cols-7 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200 mb-3">
-                <button 
-                  type="button"
-                  v-for="d in 28" 
-                  :key="d"
-                  @click="pilihTanggal(d)"
-                  :class="[
-                    'h-10 rounded-xl text-xs font-extrabold flex flex-col items-center justify-center transition-all border cursor-pointer',
-                    pengaturan.tanggal_distribusi === d
-                      ? 'bg-indigo-600 text-white shadow-md border-indigo-700 ring-2 ring-indigo-300 scale-105 z-10'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300'
-                  ]"
-                >
-                  <span>{{ d }}</span>
-                </button>
-              </div>
-
-              <div class="pt-2 border-t border-slate-100 flex justify-between items-center text-xs">
-                <span class="text-slate-500">Terpilih: <strong class="text-indigo-700 font-bold">Tanggal {{ pengaturan.tanggal_distribusi }}</strong></span>
-                <button type="button" @click="isDatePickerOpen = false" class="text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg shadow-sm transition-colors">Pilih & Selesai</button>
-              </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-indigo-700/50 pt-5 mt-6 relative z-10 text-xs">
+          <div class="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/10">
+            <div class="p-2 bg-indigo-500/20 text-indigo-300 rounded-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
             </div>
-
-            <!-- Overlay transparan untuk menutup popover saat diklik di luar -->
-            <div v-if="isDatePickerOpen" @click="isDatePickerOpen = false" class="fixed inset-0 z-40 bg-transparent"></div>
-          </div>
-
-          <!-- Banner Informatif Tanggal Terpilih -->
-          <div class="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 p-4 rounded-xl flex items-center gap-4">
-            <div class="p-3 bg-indigo-600 text-white rounded-xl flex-shrink-0 shadow-sm">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-            </div>
-            <div class="flex-1 text-xs leading-relaxed text-slate-700">
-              Sistem akan otomatis mendistribusikan jatah voucher 
-              <strong class="text-indigo-700 font-bold">{{ formatRupiah(pengaturan.nominal_voucher) }}</strong> 
-              ke seluruh <strong class="text-indigo-700 font-bold">{{ statistik.total_anggota }} anggota aktif</strong> 
-              setiap tanggal <strong class="text-indigo-700 font-bold">{{ pengaturan.tanggal_distribusi }}</strong> bulan berjalan.
-            </div>
-          </div>
-
-          <!-- Settings Bar: Nominal & Status -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center border-t border-slate-100 pt-4">
-            
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Nominal Voucher Per Anggota (Rp)</label>
-              <div class="relative">
-                <span class="absolute left-3.5 top-2.5 text-slate-400 font-semibold text-sm">Rp</span>
-                <input type="number" v-model.number="pengaturan.nominal_voucher" step="10000" min="10000" class="w-full border border-slate-300 rounded-lg pl-10 pr-4 py-2.5 text-sm text-slate-800 font-semibold focus:ring-2 focus:ring-indigo-600 focus:outline-none bg-white">
-              </div>
+              <p class="text-indigo-300 text-[10px] uppercase tracking-wider font-semibold">Jadwal Rutin Sistem</p>
+              <p class="font-bold text-white mt-0.5">Setiap Tanggal 1 Awal Bulan</p>
             </div>
+          </div>
 
+          <div class="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/10">
+            <div class="p-2 bg-emerald-500/20 text-emerald-300 rounded-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
             <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Status Pembagian Otomatis</label>
-              <div class="flex gap-4 items-center bg-slate-50 p-2 rounded-lg border border-slate-200">
-                <label :class="['flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md cursor-pointer text-xs font-bold transition-all', pengaturan.is_otomatis === 'aktif' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200']">
-                  <input type="radio" value="aktif" v-model="pengaturan.is_otomatis" class="sr-only">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-                  Otomatis Aktif
-                </label>
-                <label :class="['flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md cursor-pointer text-xs font-bold transition-all', pengaturan.is_otomatis === 'nonaktif' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200']">
-                  <input type="radio" value="nonaktif" v-model="pengaturan.is_otomatis" class="sr-only">
-                  Nonaktifkan
-                </label>
-              </div>
+              <p class="text-indigo-300 text-[10px] uppercase tracking-wider font-semibold">Jatah Nominal Bulanan</p>
+              <p class="font-bold text-white mt-0.5">Rp 100.000 / Anggota Aktif</p>
             </div>
-
           </div>
 
-          <div class="flex justify-between items-center border-t border-slate-100 pt-4">
-            <p class="text-xs text-slate-500">
-              Terakhir didistribusikan: <strong class="text-slate-700">{{ pengaturan.terakhir_distribusi ? formatTanggal(pengaturan.terakhir_distribusi) : 'Belum Pernah' }}</strong>
-            </p>
-            <button type="submit" :disabled="isSaving" class="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold py-2.5 px-6 rounded-lg text-sm transition-colors shadow-sm flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
-              <span v-if="isSaving">Menyimpan...</span>
-              <span v-else>Simpan Jadwal Otomatis</span>
-            </button>
+          <div class="flex items-center gap-3 bg-white/5 p-3 rounded-xl border border-white/10">
+            <div class="p-2 bg-purple-500/20 text-purple-300 rounded-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+            <div>
+              <p class="text-indigo-300 text-[10px] uppercase tracking-wider font-semibold">Terakhir Didistribusikan</p>
+              <p class="font-bold text-white mt-0.5">{{ pengaturan.terakhir_distribusi ? formatTanggal(pengaturan.terakhir_distribusi) : 'Belum Pernah' }}</p>
+            </div>
           </div>
-
-        </form>
+        </div>
       </div>
 
       <!-- Section Tabel Riwayat Distribusi -->
