@@ -5,6 +5,7 @@ import { useAuthStore } from './stores/auth'
 import DashboardKoperasi from './components/DashboardKoperasi.vue'
 import KelolaBarang from './components/KelolaBarang.vue'
 import KelolaAnggota from './components/KelolaAnggota.vue'
+import KelolaVoucher from './components/KelolaVoucher.vue'
 import KelolaSupplier from './components/KelolaSupplier.vue'
 
 import PembelianGudang from './components/PembelianGudang.vue'
@@ -20,6 +21,7 @@ const routes = [
     { path: '/', component: DashboardKoperasi, meta: { requiresAuth: true } },
     { path: '/kelola-barang', component: KelolaBarang, meta: { requiresAuth: true } },
     { path: '/kelola-anggota', component: KelolaAnggota, meta: { requiresAuth: true } },
+    { path: '/kelola-voucher', component: KelolaVoucher, meta: { requiresAuth: true } },
     { path: '/kelola-supplier', component: KelolaSupplier, meta: { requiresAuth: true } },
 
     { path: '/pembelian', component: PembelianGudang, meta: { requiresAuth: true } },

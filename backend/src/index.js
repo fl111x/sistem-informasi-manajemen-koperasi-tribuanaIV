@@ -54,6 +54,13 @@ app.use('/api/supplier', supplierRoutes);
 app.use('/api/hutang', hutangRoutes);
 app.use('/api/laporan', laporanRoutes);
 
+const { cekDistribusiOtomatisHarian } = require('./controllers/voucher.controller');
+
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
+  // Cek jadwal distribusi otomatis voucher bulanan
+  cekDistribusiOtomatisHarian();
+  setInterval(() => {
+    cekDistribusiOtomatisHarian();
+  }, 6 * 60 * 60 * 1000);
 });
