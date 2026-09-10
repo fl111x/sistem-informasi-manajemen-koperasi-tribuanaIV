@@ -445,10 +445,10 @@ const prosesTransaksi = async () => {
       </div>
 
       <!-- Kanan: Panel Pembayaran -->
-      <div class="w-[380px] flex flex-col h-full bg-white border border-slate-300 rounded-lg shadow-sm p-4 justify-between">
+      <div class="w-[380px] flex flex-col h-full bg-white border border-slate-300 rounded-lg shadow-sm p-3.5 justify-between overflow-hidden">
         
-        <div class="flex flex-col gap-3">
-          <h3 class="text-base font-bold text-slate-800 border-b border-slate-200 pb-1">Pembayaran</h3>
+        <div class="flex-1 overflow-y-auto pr-1.5 space-y-2">
+          <h3 class="text-base font-bold text-slate-800 border-b border-slate-200 pb-1 sticky top-0 bg-white z-10">Pembayaran</h3>
 
           <!-- Keanggotaan -->
           <div>
@@ -458,7 +458,7 @@ const prosesTransaksi = async () => {
                 type="text" v-model="nrpAnggota"
                 @focus="isAnggotaDropdownOpen = true"
                 @blur="setTimeout(() => isAnggotaDropdownOpen = false, 200)"
-                class="w-full border border-slate-300 p-2 rounded text-sm text-slate-800 focus:outline-none focus:border-blue-600"
+                class="w-full border border-slate-300 px-2.5 py-1.5 rounded text-sm text-slate-800 focus:outline-none focus:border-blue-600"
                 placeholder="Masukkan NRP / ID Anggota..."
               >
               <!-- Dropdown Pencarian Anggota -->
@@ -483,11 +483,11 @@ const prosesTransaksi = async () => {
           </div>
 
           <!-- Ringkasan -->
-          <div class="flex justify-between items-center text-slate-600 text-sm mt-2">
+          <div class="flex justify-between items-center text-slate-600 text-xs pt-1">
             <span>Total item</span>
             <span class="font-bold text-slate-800">{{ keranjang.length }}</span>
           </div>
-          <div class="flex justify-between items-center text-slate-600 text-sm border-b border-slate-100 pb-2">
+          <div class="flex justify-between items-center text-slate-600 text-xs border-b border-slate-100 pb-1.5">
             <span>Subtotal Barang</span>
             <span class="font-bold text-slate-800">{{ formatRupiah(subtotalBelanja) }}</span>
           </div>
@@ -500,13 +500,13 @@ const prosesTransaksi = async () => {
                 <span class="absolute left-2.5 top-1.5 text-slate-400 text-sm font-bold">Rp</span>
                 <input 
                   type="number" v-model="diskonRupiah" @input="hitungDariRupiah" min="0"
-                  class="w-full border border-slate-300 pl-8 pr-2 py-1.5 rounded text-sm text-slate-800 font-semibold focus:outline-none focus:border-blue-600"
+                  class="w-full border border-slate-300 pl-8 pr-2 py-1 rounded text-sm text-slate-800 font-semibold focus:outline-none focus:border-blue-600"
                 >
               </div>
               <div class="relative w-1/3">
                 <input 
                   type="number" v-model="diskonPersen" @input="hitungDariPersen" min="0" max="100" step="0.01"
-                  class="w-full border border-slate-300 pl-2 pr-6 py-1.5 rounded text-sm text-slate-800 font-semibold focus:outline-none focus:border-blue-600"
+                  class="w-full border border-slate-300 pl-2 pr-6 py-1 rounded text-sm text-slate-800 font-semibold focus:outline-none focus:border-blue-600"
                 >
                 <span class="absolute right-2.5 top-1.5 text-slate-400 text-sm font-bold">%</span>
               </div>
@@ -514,29 +514,29 @@ const prosesTransaksi = async () => {
           </div>
 
           <!-- TOTAL BAYAR (Sebenarnya) -->
-          <div class="flex justify-between items-end bg-blue-50 p-3 rounded border border-blue-100 mt-2">
-            <span class="text-blue-800 text-xs font-bold pb-1">TOTAL TAGIHAN</span>
-            <span class="text-2xl font-black text-blue-600">{{ formatRupiah(totalBelanjaAkhir) }}</span>
+          <div class="flex justify-between items-end bg-blue-50 p-2.5 rounded border border-blue-100">
+            <span class="text-blue-800 text-xs font-bold pb-0.5">TOTAL TAGIHAN</span>
+            <span class="text-xl font-black text-blue-600">{{ formatRupiah(totalBelanjaAkhir) }}</span>
           </div>
 
           <!-- Bayar dengan Voucher -->
-          <div v-if="selectedAnggotaObj && parseFloat(selectedAnggotaObj.saldo_voucher || 0) > 0" class="mt-2 p-3 bg-indigo-50 border border-indigo-100 rounded-lg">
-            <div class="flex justify-between items-center mb-1">
+          <div v-if="selectedAnggotaObj && parseFloat(selectedAnggotaObj.saldo_voucher || 0) > 0" class="p-2.5 bg-indigo-50 border border-indigo-100 rounded-lg space-y-1">
+            <div class="flex justify-between items-center">
               <label class="text-xs font-bold text-indigo-900">Gunakan Voucher</label>
               <span class="text-[11px] font-medium text-indigo-700">Saldo: {{ formatRupiah(selectedAnggotaObj.saldo_voucher) }}</span>
             </div>
             
-            <div v-if="totalBelanjaAkhir < 100000" class="text-xs text-amber-700 bg-amber-50 p-2 rounded border border-amber-200 mt-1 flex items-center gap-1.5 font-medium">
+            <div v-if="totalBelanjaAkhir < 100000" class="text-xs text-amber-700 bg-amber-50 p-1.5 rounded border border-amber-200 flex items-center gap-1.5 font-medium">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
               Min. belanja Rp 100.000 untuk pakai voucher
             </div>
-            <div v-else-if="parseFloat(selectedAnggotaObj.saldo_voucher || 0) < 100000" class="text-xs text-slate-500 mt-1 italic">
+            <div v-else-if="parseFloat(selectedAnggotaObj.saldo_voucher || 0) < 100000" class="text-xs text-slate-500 italic">
               Saldo voucher kurang dari Rp 100.000
             </div>
-            <div v-else class="mt-1 flex flex-col gap-1">
+            <div v-else class="flex flex-col gap-1">
               <select 
                 v-model.number="nominalVoucher"
-                class="w-full border border-indigo-200 px-3 py-1.5 rounded text-sm text-indigo-900 font-bold focus:outline-none focus:border-indigo-500 bg-white"
+                class="w-full border border-indigo-200 px-2.5 py-1 rounded text-sm text-indigo-900 font-bold focus:outline-none focus:border-indigo-500 bg-white"
               >
                 <option :value="0">0 (Tidak Pakai Voucher)</option>
                 <option 
@@ -551,15 +551,15 @@ const prosesTransaksi = async () => {
             </div>
           </div>
           
-          <div v-if="nominalVoucher > 0" class="flex justify-between items-end bg-slate-100 p-2 rounded border border-slate-200 mt-2">
+          <div v-if="nominalVoucher > 0" class="flex justify-between items-end bg-slate-100 p-2 rounded border border-slate-200">
             <span class="text-slate-600 text-xs font-bold">SISA DIBAYAR</span>
-            <span class="text-lg font-black text-slate-800">{{ formatRupiah(totalYangHarusDibayar) }}</span>
+            <span class="text-base font-black text-slate-800">{{ formatRupiah(totalYangHarusDibayar) }}</span>
           </div>
 
           <!-- Metode Pembayaran -->
-          <div class="mt-2">
+          <div>
             <label class="text-xs font-semibold text-slate-800 block mb-1">Metode Pembayaran</label>
-            <select v-model="metodePembayaran" class="w-full border border-slate-300 p-2 rounded text-sm text-slate-800 focus:outline-none focus:border-blue-600 font-semibold bg-white">
+            <select v-model="metodePembayaran" class="w-full border border-slate-300 px-2.5 py-1.5 rounded text-sm text-slate-800 focus:outline-none focus:border-blue-600 font-semibold bg-white">
               <option value="Cash">Cash (Tunai)</option>
               <option value="Kredit">Kredit / Debit</option>
               <option value="QRIS">QRIS</option>
@@ -568,34 +568,34 @@ const prosesTransaksi = async () => {
           </div>
 
           <!-- Uang Diterima (Hanya Tampil Jika Cash) -->
-          <div v-if="metodePembayaran === 'Cash'" class="flex flex-col gap-1 mt-2">
+          <div v-if="metodePembayaran === 'Cash'" class="flex flex-col gap-1">
             <label class="text-xs font-semibold text-slate-800">Uang Diterima</label>
             <input 
               type="number" v-model="uangDiterima"
-              class="w-full border border-slate-300 p-2 rounded text-right text-base font-bold focus:outline-none focus:border-blue-600 bg-slate-50"
+              class="w-full border border-slate-300 px-2.5 py-1.5 rounded text-right text-base font-bold focus:outline-none focus:border-blue-600 bg-slate-50"
               placeholder="0"
             >
           </div>
 
-          <div v-if="metodePembayaran === 'Cash'" class="grid grid-cols-4 gap-1.5">
-            <button @click="setUang('Pas')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold py-1.5 rounded border border-slate-300">Uang Pas</button>
-            <button @click="setUang(50000)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold py-1.5 rounded border border-slate-300">50 Ribu</button>
-            <button @click="setUang(100000)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold py-1.5 rounded border border-slate-300">100 Ribu</button>
-            <button @click="setUang(200000)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold py-1.5 rounded border border-slate-300">200 Ribu</button>
+          <div v-if="metodePembayaran === 'Cash'" class="grid grid-cols-4 gap-1">
+            <button @click="setUang('Pas')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold py-1 rounded border border-slate-300">Uang Pas</button>
+            <button @click="setUang(50000)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold py-1 rounded border border-slate-300">50 Ribu</button>
+            <button @click="setUang(100000)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold py-1 rounded border border-slate-300">100 Ribu</button>
+            <button @click="setUang(200000)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold py-1 rounded border border-slate-300">200 Ribu</button>
           </div>
 
           <!-- Kembalian (Hanya Tampil Jika Cash) -->
-          <div v-if="metodePembayaran === 'Cash'" class="flex justify-between items-center bg-slate-100 p-3 rounded border border-slate-200 mt-2">
-            <span class="text-sm font-semibold text-slate-600">Kembalian</span>
-            <span class="text-lg font-bold text-slate-800">{{ formatRupiah(kembalian) }}</span>
+          <div v-if="metodePembayaran === 'Cash'" class="flex justify-between items-center bg-slate-100 p-2 rounded border border-slate-200">
+            <span class="text-xs font-semibold text-slate-600">Kembalian</span>
+            <span class="text-base font-bold text-slate-800">{{ formatRupiah(kembalian) }}</span>
           </div>
         </div>
 
-        <!-- Tombol Cetak -->
-        <div class="mt-2">
+        <!-- Tombol Cetak (Sticky at bottom) -->
+        <div class="flex-shrink-0 pt-2 border-t border-slate-200 bg-white">
           <button 
             @click="prosesTransaksi"
-            class="w-full font-bold py-3 text-sm rounded transition-colors flex justify-center items-center gap-2"
+            class="w-full font-bold py-2.5 text-sm rounded transition-colors flex justify-center items-center gap-2"
             :class="(totalYangHarusDibayar === 0 || (metodePembayaran === 'Cash' && Number(uangDiterima || 0) >= totalYangHarusDibayar) || metodePembayaran !== 'Cash') ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md cursor-pointer' : 'bg-slate-300 text-slate-500 cursor-not-allowed'"
             :disabled="(totalYangHarusDibayar > 0 && metodePembayaran === 'Cash' && Number(uangDiterima || 0) < totalYangHarusDibayar) || isProcessing || keranjang.length === 0"
           >
