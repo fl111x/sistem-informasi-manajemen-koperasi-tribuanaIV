@@ -126,6 +126,12 @@ const handleFileChange = (e) => {
 };
 
 const bacaBerkasExcel = (file) => {
+  const fileName = (file.name || '').toUpperCase();
+  let fileDefaultJenis = null;
+  if (fileName.includes('ASN') || fileName.includes('PNS')) fileDefaultJenis = 'PNS';
+  else if (fileName.includes('PPPK')) fileDefaultJenis = 'PPPK';
+  else if (fileName.includes('MIL') || fileName.includes('MILITER')) fileDefaultJenis = 'Militer';
+
   const reader = new FileReader();
   reader.onload = (evt) => {
     try {
@@ -134,41 +140,82 @@ const bacaBerkasExcel = (file) => {
       const parsedItems = [];
 
       workbook.SheetNames.forEach(sheetName => {
+        const sNameUpper = sheetName.toUpperCase();
+        if (sNameUpper.includes('REKAP') || sNameUpper.includes('VALIDASI') || sNameUpper.includes('DSP ')) return;
+
         const sheet = workbook.Sheets[sheetName];
         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-        let defaultJenis = 'Militer';
-        if (sheetName.toUpperCase().includes('PPPK')) defaultJenis = 'PPPK';
-        else if (sheetName.toUpperCase().includes('PNS') || sheetName.toUpperCase().includes('ASN')) defaultJenis = 'PNS';
+        let sheetDefaultJenis = fileDefaultJenis;
+        if (sNameUpper.includes('PPPK')) sheetDefaultJenis = 'PPPK';
+        else if (sNameUpper.includes('PNS') || sNameUpper.includes('ASN')) sheetDefaultJenis = 'PNS';
+        else if (sNameUpper.includes('MIL') || sNameUpper.includes('MILITER')) sheetDefaultJenis = 'Militer';
 
         rows.forEach(r => {
-          if (!r || r.length < 2) return;
+          if (!r || !Array.isArray(r) || r.length < 3) return;
+          const cells = r.map(c => (c !== null && c !== undefined) ? String(c).trim() : '');
+          const rowStr = cells.join(' ').toUpperCase();
+
+          if (rowStr.includes('NAMA') && (rowStr.includes('NRP') || rowStr.includes('NIP') || rowStr.includes('GOL'))) return;
+          if (rowStr.includes('KOMANDO PASUKAN') || rowStr.includes('DAFTAR NOMINATIF') || rowStr.includes('REKAPITULASI') || rowStr.includes('JUMLAH')) return;
+
           let nrp = '';
           let nama = '';
           let pangkat = '';
-          let jenis = defaultJenis;
 
-          // Format 5 kolom (No, Nama, Pangkat, NRP, Saldo)
-          if (r.length >= 4 && String(r[0]).match(/^\d+$/) && typeof r[1] === 'string' && r[1].length > 2) {
-            nama = String(r[1]).trim();
-            pangkat = String(r[2] || '-').trim();
-            nrp = String(r[3] || '').trim();
-          } 
-          // Format nominatif militer/asn (r[2] = nama, r[3] = pangkat/gol, r[4] = nrp/nip)
-          else if (r.length >= 5 && typeof r[2] === 'string' && r[2].trim().length > 2) {
-            nama = String(r[2]).trim();
-            pangkat = String(r[3] || '-').trim();
-            nrp = String(r[4] || '').trim();
+          // Pattern 0: Military nominatif with Korps column [ Urt, Bag, Nama, Pangkat, Korps, NRP ] (6+ cols)
+          if (cells.length >= 6 && cells[2] && cells[2].length > 2 && !/^\d+$/.test(cells[2]) && cells[5] && /^\d{6,18}$/.test(cells[5])) {
+            nama = cells[2];
+            pangkat = cells[3] || '-';
+            nrp = cells[5];
+          }
+          // Pattern 1: Official Nominatif Kopassus 5 columns [ Urt, Bag, Nama, Pangkat, NRP/NIP ]
+          else if (cells.length >= 5 && cells[2] && cells[2].length > 2 && !/^\d+$/.test(cells[2]) && cells[4] && /^\d{6,18}$/.test(cells[4])) {
+            nama = cells[2];
+            pangkat = cells[3] || '-';
+            nrp = cells[4];
+          }
+          // Pattern 2: 4 columns [ No, NRP/NIP, Nama, Pangkat/Gol ]
+          else if (cells.length >= 3 && /^\d+$/.test(cells[0] || '') && /^\d{6,18}$/.test(cells[1] || '') && (cells[2] || '').length > 2 && !/^\d+$/.test(cells[2] || '')) {
+            nrp = cells[1];
+            nama = cells[2];
+            pangkat = cells[3] || '-';
+          }
+          // Pattern 3: 4 columns [ No, Nama, Pangkat, NRP/NIP ]
+          else if (cells.length >= 4 && /^\d+$/.test(cells[0] || '') && (cells[1] || '').length > 2 && !/^\d+$/.test(cells[1] || '') && /^\d{6,18}$/.test(cells[3] || '')) {
+            nama = cells[1];
+            pangkat = cells[2] || '-';
+            nrp = cells[3];
           }
 
-          if (nama && nrp && /^\d+$/.test(nrp)) {
-            parsedItems.push({
-              nrp,
-              nama,
-              pangkat,
-              jenis_anggota: jenis
-            });
+          if (!nama || !nrp || !/^\d{6,18}$/.test(nrp)) return;
+
+          let jenis = sheetDefaultJenis || fileDefaultJenis || 'Militer';
+          const isNIP18 = nrp.length === 18 && (nrp.startsWith('19') || nrp.startsWith('20'));
+          const pangkatUpper = (pangkat || '').toUpperCase();
+
+          const isPNSStyle = isNIP18 || 
+                            /\b(I|II|III|IV)\/[A-E]\b/.test(pangkatUpper) || 
+                            /\bGOL\b/.test(pangkatUpper) ||
+                            pangkatUpper.includes('PEMBINA') || 
+                            pangkatUpper.includes('PENATA') || 
+                            pangkatUpper.includes('PNS') || 
+                            pangkatUpper.includes('CPNS');
+
+          if (pangkatUpper.includes('PPPK') || sNameUpper.includes('PPPK') || sheetDefaultJenis === 'PPPK') {
+            jenis = 'PPPK';
+          } else if (isPNSStyle || fileDefaultJenis === 'PNS' || sheetDefaultJenis === 'PNS') {
+            jenis = 'PNS';
+          } else if ((fileDefaultJenis === 'Militer' || sheetDefaultJenis === 'Militer') && !isPNSStyle) {
+            jenis = 'Militer';
           }
+
+          parsedItems.push({
+            nrp,
+            nama,
+            pangkat: pangkat || '-',
+            jenis_anggota: jenis
+          });
         });
       });
 
