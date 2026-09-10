@@ -21,6 +21,9 @@ router.post('/', verifyToken, verifyAdmin, anggotaController.createAnggota);
 // PUT update anggota
 router.put('/:nrp', verifyToken, verifyAdmin, anggotaController.updateAnggota);
 
+// POST impor batch excel anggota
+router.post('/impor-excel', verifyToken, verifyAdmin, anggotaController.importAnggotaBatch);
+
 // DELETE anggota (soft delete)
 router.delete('/:nrp', verifyToken, verifyAdmin, anggotaController.deleteAnggota);
 

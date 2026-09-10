@@ -97,8 +97,125 @@ const exportExcelAll = async () => {
 
 // Fitur Cetak Detail Anggota Individu (Laporan Resmi / PDF)
 const isPrintModalOpen = ref(false);
-const printData = ref(null);
-const isLoadingPrint = ref(false);
+// Fitur Impor Excel Otomatis
+const isImporModalOpen = ref(false);
+const isImporting = ref(false);
+const selectedFile = ref(null);
+const parsedImportData = ref([]);
+const importSummary = ref(null);
+
+const bukaModalImpor = () => {
+  selectedFile.value = null;
+  parsedImportData.value = [];
+  importSummary.value = null;
+  isImporModalOpen.value = true;
+};
+
+const tutupModalImpor = () => {
+  isImporModalOpen.value = false;
+  selectedFile.value = null;
+  parsedImportData.value = [];
+  importSummary.value = null;
+};
+
+const handleFileChange = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  selectedFile.value = file;
+  bacaBerkasExcel(file);
+};
+
+const bacaBerkasExcel = (file) => {
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const data = new Uint8Array(evt.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const parsedItems = [];
+
+      workbook.SheetNames.forEach(sheetName => {
+        const sheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+        let defaultJenis = 'Militer';
+        if (sheetName.toUpperCase().includes('PPPK')) defaultJenis = 'PPPK';
+        else if (sheetName.toUpperCase().includes('PNS') || sheetName.toUpperCase().includes('ASN')) defaultJenis = 'PNS';
+
+        rows.forEach(r => {
+          if (!r || r.length < 2) return;
+          let nrp = '';
+          let nama = '';
+          let pangkat = '';
+          let jenis = defaultJenis;
+
+          // Format 5 kolom (No, Nama, Pangkat, NRP, Saldo)
+          if (r.length >= 4 && String(r[0]).match(/^\d+$/) && typeof r[1] === 'string' && r[1].length > 2) {
+            nama = String(r[1]).trim();
+            pangkat = String(r[2] || '-').trim();
+            nrp = String(r[3] || '').trim();
+          } 
+          // Format nominatif militer/asn (r[2] = nama, r[3] = pangkat/gol, r[4] = nrp/nip)
+          else if (r.length >= 5 && typeof r[2] === 'string' && r[2].trim().length > 2) {
+            nama = String(r[2]).trim();
+            pangkat = String(r[3] || '-').trim();
+            nrp = String(r[4] || '').trim();
+          }
+
+          if (nama && nrp && /^\d+$/.test(nrp)) {
+            parsedItems.push({
+              nrp,
+              nama,
+              pangkat,
+              jenis_anggota: jenis
+            });
+          }
+        });
+      });
+
+      // Deduplikasi berdasarkan NRP
+      const mapNrp = new Map();
+      parsedItems.forEach(item => {
+        if (!mapNrp.has(item.nrp)) mapNrp.set(item.nrp, item);
+      });
+      parsedImportData.value = Array.from(mapNrp.values());
+
+      const countMil = parsedImportData.value.filter(i => i.jenis_anggota === 'Militer').length;
+      const countPNS = parsedImportData.value.filter(i => i.jenis_anggota === 'PNS').length;
+      const countPPPK = parsedImportData.value.filter(i => i.jenis_anggota === 'PPPK').length;
+
+      importSummary.value = {
+        total: parsedImportData.value.length,
+        militer: countMil,
+        pns: countPNS,
+        pppk: countPPPK
+      };
+    } catch (err) {
+      console.error('Error reading excel file:', err);
+      tampilkanNotif('Gagal', 'Berkas Excel tidak dapat dibaca. Pastikan format file sesuai.');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+};
+
+const eksekusiImporBatch = async () => {
+  if (parsedImportData.value.length === 0) {
+    tampilkanNotif('Peringatan', 'Tidak ada data anggota valid yang dapat diimpor.');
+    return;
+  }
+
+  try {
+    isImporting.value = true;
+    const response = await api.post('/anggota/impor-excel', { items: parsedImportData.value });
+    tutupModalImpor();
+    tampilkanNotif('Berhasil', response.data?.message || 'Data anggota berhasil diimpor otomatis.');
+    await fetchAnggota();
+  } catch (err) {
+    console.error('Error executing batch import:', err);
+    tampilkanNotif('Gagal', err.response?.data?.message || 'Gagal menyimpan data impor anggota ke database.');
+  } finally {
+    isImporting.value = false;
+  }
+};
 
 const daftarJatahBulan = computed(() => {
   if (!printData.value || !printData.value.summary) return [];
@@ -295,6 +412,10 @@ const konfirmasiHapus = async () => {
         <p class="text-sm text-slate-500 mt-1">Data nominatif anggota koperasi dan saldo voucher.</p>
       </div>
       <div class="flex gap-2">
+        <button @click="bukaModalImpor" class="bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+          <span>Impor Excel</span>
+        </button>
         <button @click="exportExcelAll" :disabled="isExporting" class="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold py-2 px-4 rounded-md shadow-sm transition-colors flex items-center gap-2">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
           <span v-if="isExporting">Mengunduh...</span>
@@ -614,6 +735,144 @@ const konfirmasiHapus = async () => {
             </svg>
             <span v-if="isDistributing">Memproses Distribusi...</span>
             <span v-else>Ya, Bagikan Voucher Sekarang</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL IMPOR EXCEL AUTOMATIS -->
+    <div v-if="isImporModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+      <div class="bg-white w-full max-w-xl rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-slate-100 max-h-[90vh]">
+        <!-- Header Modal -->
+        <div class="px-6 py-5 border-b border-slate-100 bg-gradient-to-r from-teal-50 to-emerald-50 flex justify-between items-center">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-md shadow-teal-200">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+            </div>
+            <div>
+              <h3 class="font-bold text-lg text-slate-800 leading-tight">Impor Data Nominatif Anggota (Excel)</h3>
+              <p class="text-xs text-teal-600 font-medium mt-0.5">Entry Otomatis Berkas Bulanan (.xlsx / .xls)</p>
+            </div>
+          </div>
+          <button @click="tutupModalImpor" class="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-white/60">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Content Body -->
+        <div class="p-6 space-y-4 overflow-y-auto">
+          
+          <!-- Area Upload File -->
+          <div class="border-2 border-dashed border-teal-200 hover:border-teal-400 bg-teal-50/30 rounded-2xl p-6 text-center transition-colors">
+            <input 
+              type="file" 
+              accept=".xlsx, .xls" 
+              @change="handleFileChange" 
+              class="hidden" 
+              id="excel-file-input"
+            >
+            <label for="excel-file-input" class="cursor-pointer flex flex-col items-center justify-center">
+              <div class="w-12 h-12 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <span class="text-sm font-bold text-slate-800 mb-1">
+                {{ selectedFile ? selectedFile.name : 'Pilih Berkas Excel (.xlsx / .xls)' }}
+              </span>
+              <span class="text-xs text-slate-500">Klik di sini untuk mengunggah file nominatif bulanan</span>
+            </label>
+          </div>
+
+          <!-- Alert Panduan Format -->
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1.5 text-xs text-slate-600">
+            <span class="font-bold text-slate-800 block flex items-center gap-1.5">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Sistem Impor Otomatis Cerdas:
+            </span>
+            <ul class="list-disc list-inside space-y-1 text-[11px] leading-relaxed text-slate-500 pl-1">
+              <li>Mendukung file nominatif resmi (sheet <strong>Militer</strong>, <strong>PNS</strong>, <strong>PPPK</strong>) maupun format tabel sederhana (<strong>No, Nama, Pangkat, NRP</strong>).</li>
+              <li>Anggota baru otomatis didaftarkan dan diberikan saldo awal alokasi voucher bulanan (<strong>Rp 100.000</strong>).</li>
+              <li>Anggota lama yang sudah ada di database akan diperbarui nama/pangkatnya tanpa mengubah saldo voucher yang tersisa.</li>
+            </ul>
+          </div>
+
+          <!-- Summary Deteksi Berkas -->
+          <div v-if="importSummary" class="bg-teal-50 border border-teal-100 rounded-xl p-4 space-y-3">
+            <h4 class="font-bold text-xs uppercase tracking-wider text-teal-900 border-b border-teal-200/60 pb-2">
+              Pratinjau Hasil Deteksi Berkas
+            </h4>
+            <div class="grid grid-cols-4 gap-2 text-center text-xs">
+              <div class="bg-white p-2.5 rounded-lg border border-teal-100 shadow-sm">
+                <span class="text-[10px] font-bold text-slate-400 block uppercase">Total Valid</span>
+                <span class="text-base font-black text-slate-800">{{ importSummary.total }}</span>
+              </div>
+              <div class="bg-blue-50 p-2.5 rounded-lg border border-blue-100 shadow-sm">
+                <span class="text-[10px] font-bold text-blue-600 block uppercase">Militer</span>
+                <span class="text-base font-black text-blue-900">{{ importSummary.militer }}</span>
+              </div>
+              <div class="bg-emerald-50 p-2.5 rounded-lg border border-emerald-100 shadow-sm">
+                <span class="text-[10px] font-bold text-emerald-600 block uppercase">PNS</span>
+                <span class="text-base font-black text-emerald-900">{{ importSummary.pns }}</span>
+              </div>
+              <div class="bg-purple-50 p-2.5 rounded-lg border border-purple-100 shadow-sm">
+                <span class="text-[10px] font-bold text-purple-600 block uppercase">PPPK</span>
+                <span class="text-base font-black text-purple-900">{{ importSummary.pppk }}</span>
+              </div>
+            </div>
+
+            <!-- Tabel Pratinjau 5 Data Pertama -->
+            <div class="border border-teal-200 rounded-lg overflow-hidden bg-white text-xs mt-2">
+              <table class="w-full text-left">
+                <thead class="bg-teal-100/60 font-bold text-teal-900 border-b border-teal-200">
+                  <tr>
+                    <th class="px-3 py-2">Nama</th>
+                    <th class="px-3 py-2">Pangkat</th>
+                    <th class="px-3 py-2">NRP / NIP</th>
+                    <th class="px-3 py-2 text-center">Kategori</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-teal-50">
+                  <tr v-for="item in parsedImportData.slice(0, 5)" :key="item.nrp" class="hover:bg-teal-50/50">
+                    <td class="px-3 py-1.5 font-medium text-slate-800">{{ item.nama }}</td>
+                    <td class="px-3 py-1.5 text-slate-600">{{ item.pangkat }}</td>
+                    <td class="px-3 py-1.5 font-mono text-slate-700">{{ item.nrp }}</td>
+                    <td class="px-3 py-1.5 text-center">
+                      <span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase" :class="item.jenis_anggota === 'PNS' ? 'bg-emerald-100 text-emerald-700' : item.jenis_anggota === 'PPPK' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'">
+                        {{ item.jenis_anggota }}
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div v-if="parsedImportData.length > 5" class="px-3 py-1.5 text-[10px] text-slate-400 text-center bg-slate-50 border-t border-teal-100">
+                ...dan {{ parsedImportData.length - 5 }} anggota lainnya
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Actions -->
+        <div class="px-6 py-4 border-t border-slate-100 bg-slate-50/80 flex justify-end gap-3">
+          <button @click="tutupModalImpor" :disabled="isImporting" class="px-4 py-2.5 text-sm font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200/70 rounded-xl transition-colors disabled:opacity-50">
+            Batal
+          </button>
+          <button @click="eksekusiImporBatch" :disabled="isImporting || parsedImportData.length === 0" class="px-5 py-2.5 text-sm font-bold text-white bg-teal-600 hover:bg-teal-700 active:bg-teal-800 rounded-xl shadow-md shadow-teal-200 transition-all flex items-center gap-2 disabled:opacity-50">
+            <svg v-if="isImporting" class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            <span v-if="isImporting">Mengimpor {{ parsedImportData.length }} Anggota...</span>
+            <span v-else>Proses Impor Ke Database</span>
           </button>
         </div>
       </div>

@@ -292,8 +292,62 @@ const getDetailCetakAnggota = async (req, res) => {
       riwayat_transaksi: transaksiRows
     });
   } catch (error) {
-    console.error('Error fetching detail cetak anggota:', error);
-    res.status(500).json({ message: 'Terjadi kesalahan pada server' });
+const importAnggotaBatch = async (req, res) => {
+  let connection;
+  try {
+    const { items } = req.body;
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: 'Data anggota untuk diimpor tidak boleh kosong' });
+    }
+
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    const [existingRows] = await connection.execute('SELECT nrp FROM Anggota');
+    const existingNrpSet = new Set(existingRows.map(r => String(r.nrp)));
+
+    let insertedCount = 0;
+    let updatedCount = 0;
+
+    for (const m of items) {
+      const nrp = String(m.nrp || '').trim();
+      const nama = String(m.nama || '').trim();
+      const pangkat = String(m.pangkat || '-').trim();
+      const jenis_anggota = String(m.jenis_anggota || 'Militer').trim();
+
+      if (!nrp || !nama) continue;
+
+      if (existingNrpSet.has(nrp)) {
+        await connection.execute(
+          'UPDATE Anggota SET nama = ?, pangkat = ?, jenis_anggota = ?, is_active = 1 WHERE nrp = ?',
+          [nama, pangkat, jenis_anggota, nrp]
+        );
+        updatedCount++;
+      } else {
+        await connection.execute(
+          'INSERT INTO Anggota (nrp, nama, pangkat, jenis_anggota, saldo_voucher, is_active) VALUES (?, ?, ?, ?, ?, 1)',
+          [nrp, nama, pangkat, jenis_anggota, 100000]
+        );
+        existingNrpSet.add(nrp);
+        insertedCount++;
+      }
+    }
+
+    await connection.commit();
+    res.json({
+      message: 'Impor otomatis data nominatif anggota berhasil.',
+      summary: {
+        totalProcessed: items.length,
+        inserted: insertedCount,
+        updated: updatedCount
+      }
+    });
+  } catch (error) {
+    if (connection) await connection.rollback();
+    console.error('Error batch importing anggota:', error);
+    res.status(500).json({ message: 'Gagal mengimpor data anggota ke database' });
+  } finally {
+    if (connection) connection.release();
   }
 };
 
@@ -305,5 +359,6 @@ module.exports = {
   deleteAnggota,
   getRiwayatTransaksiAnggota,
   getRekapVoucherAll,
-  getDetailCetakAnggota
+  getDetailCetakAnggota,
+  importAnggotaBatch
 };
